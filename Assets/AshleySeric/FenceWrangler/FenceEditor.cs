@@ -60,6 +60,8 @@ namespace AshleySeric.FenceWrangler
 				dataEditor.OnInspectorGUI();
 				GUILayout.EndVertical();
 			}
+			if (GUILayout.Button("Update Fence"))
+				fence.BuildFence();
 			EditorGUILayout.Space();
 			EditorGUILayout.LabelField("Length: " + totalLengthProp.floatValue.ToString("F3") + "m");
 			EditorGUILayout.LabelField("Posts: " + postCountProp.intValue);

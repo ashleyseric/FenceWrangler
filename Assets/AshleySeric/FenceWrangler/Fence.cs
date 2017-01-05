@@ -75,21 +75,21 @@ namespace AshleySeric.FenceWrangler
 			normals = new List<Vector3>();
 			uvs = new List<Vector2>();		
 
-			for (int i = 0; i < corners.Length-1; i++)
+			for (int i = 0, t = 1; i < corners.Length-1; i++)
 			{
 				float dist = Vector3.Distance(corners[i], corners[i+1]);
 				if (dist <= Mathf.Epsilon) break;
 				float numberOfPosts = dist / fenceData.segmentLength;
-				for (int j = 0; j < (int)numberOfPosts + 1; j++)
+				for (int j = 0; j < (int)numberOfPosts + 1; j++, t++)
 				{
 					//Debug.Log("Adding post " + i + " | " + j);
-					AddPost(Vector3.Lerp(corners[i], corners[i+1], (float)j / numberOfPosts));
+					AddPost(Vector3.Lerp(corners[i], corners[i+1], (float)j / numberOfPosts), Quaternion.LookRotation(corners[i+1] - corners[i], Vector3.up), t);
 				}
 				totalLength += dist;
 			}
 
 			// Add the last post as we end the loop before getting there.
-			AddPost(corners[corners.Length-1]);
+			AddPost(corners[corners.Length-1], Quaternion.identity);
 
 			mesh.name = "Dynamic Fence";
 			mesh.SetVertices(verts);
@@ -103,22 +103,35 @@ namespace AshleySeric.FenceWrangler
 
 			vertexCount = mesh.vertexCount;
 		}
-		private void AddPost(Vector3 _pos, int meshIndex = 0)
+		private void AddPost(Vector3 _pos, Quaternion orient, int iter = 0)
 		{
-			float length = fenceData.postDimensions.x;
-			float width = fenceData.postDimensions.y;
-			float height = fenceData.postDimensions.z;
-			
+			float length = fenceData.postDimensions.z;
+			float width = fenceData.postDimensions.x;
+			float height = fenceData.postDimensions.y;
+
+			Vector3 up =	orient * Vector3.up;
+			Vector3 down =	orient * Vector3.down;
+			Vector3 front = orient * Vector3.forward;
+			Vector3 back =	orient * Vector3.back;
+			Vector3 left =	orient * Vector3.left;
+			Vector3 right = orient * Vector3.right;
+
+			Vector3 leftPos	 = (left * (width * 0.5f));
+			Vector3 rightPos = (right * (width * 0.5f));
+			Vector3 frontPos = (front * (length * 0.5f));
+			Vector3 backPos  = (back * (length * 0.5f));
+			Vector3 upPos	 = (up * height);
+
 			#region Vertices
-			Vector3 p0 = _pos + new Vector3( -length * .5f,	-width * .5f, height * .5f );
-			Vector3 p1 = _pos + new Vector3( length * .5f, 	-width * .5f, height * .5f );
-			Vector3 p2 = _pos + new Vector3( length * .5f, 	-width * .5f, -height * .5f );
-			Vector3 p3 = _pos + new Vector3( -length * .5f,	-width * .5f, -height * .5f );
- 
-			Vector3 p4 = _pos + new Vector3( -length * .5f,	width * .5f,  height * .5f );
-			Vector3 p5 = _pos + new Vector3( length * .5f, 	width * .5f,  height * .5f );
-			Vector3 p6 = _pos + new Vector3( length * .5f, 	width * .5f,  -height * .5f );
-			Vector3 p7 = _pos + new Vector3( -length * .5f,	width * .5f,  -height * .5f );
+			Vector3 p0 = _pos + backPos + leftPos + upPos;
+			Vector3 p1 = _pos + frontPos + leftPos + upPos;
+			Vector3 p2 = _pos + frontPos + leftPos;
+			Vector3 p3 = _pos + backPos + leftPos;
+
+			Vector3 p4 = _pos + backPos + rightPos + upPos;
+			Vector3 p5 = _pos + frontPos + rightPos + upPos;
+			Vector3 p6 = _pos + frontPos + rightPos;
+			Vector3 p7 = _pos + backPos + rightPos;
 
 			// same vertices added multiple times to create sharp edges.
 			Vector3[] _verts = new Vector3[]
@@ -144,12 +157,7 @@ namespace AshleySeric.FenceWrangler
 			#endregion
 
 			#region Normales
-			Vector3 up 	= Vector3.up;
-			Vector3 down 	= Vector3.down;
-			Vector3 front 	= Vector3.forward;
-			Vector3 back 	= Vector3.back;
-			Vector3 left 	= Vector3.left;
-			Vector3 right 	= Vector3.right;
+			
  
 			Vector3[] _normals = new Vector3[]
 			{
@@ -201,34 +209,59 @@ namespace AshleySeric.FenceWrangler
 			};
 			#endregion
 
-			// Triangles are all referencing only the first 28 verticies.
-			// I need to add an offset for each iteration to compensate.
+			//This creates our offset
+			iter *= 24;
+
 			#region Triangles
 			int[] _tris = new int[]
 			{
 				// Bottom
-				3, 1, 0,
-				3, 2, 1,			
+				iter + 3, iter + 1, iter + 0,
+				iter + 3, iter + 2, iter + 1,			
  
 				// Left
-				3 + 4 * 1, 1 + 4 * 1, 0 + 4 * 1,
-				3 + 4 * 1, 2 + 4 * 1, 1 + 4 * 1,
+				iter + 3 + 4 * 1, iter + 1 + 4 * 1, iter + 0 + 4 * 1,
+				iter + 3 + 4 * 1, iter + 2 + 4 * 1, iter + 1 + 4 * 1,
  
 				// Front
-				3 + 4 * 2, 1 + 4 * 2, 0 + 4 * 2,
-				3 + 4 * 2, 2 + 4 * 2, 1 + 4 * 2,
+				iter + 3 + 4 * 2, iter + 1 + 4 * 2, iter + 0 + 4 * 2,
+				iter + 3 + 4 * 2, iter + 2 + 4 * 2, iter + 1 + 4 * 2,
  
 				// Back
-				3 + 4 * 3, 1 + 4 * 3, 0 + 4 * 3,
-				3 + 4 * 3, 2 + 4 * 3, 1 + 4 * 3,
+				iter + 3 + 4 * 3, iter + 1 + 4 * 3, iter + 0 + 4 * 3,
+				iter + 3 + 4 * 3, iter + 2 + 4 * 3, iter + 1 + 4 * 3,
  
 				// Right
-				3 + 4 * 4, 1 + 4 * 4, 0 + 4 * 4,
-				3 + 4 * 4, 2 + 4 * 4, 1 + 4 * 4,
+				iter + 3 + 4 * 4, iter + 1 + 4 * 4, iter + 0 + 4 * 4,
+				iter + 3 + 4 * 4, iter + 2 + 4 * 4, iter + 1 + 4 * 4,
  
 				// Top
-				3 + 4 * 5, 1 + 4 * 5, 0 + 4 * 5,
-				3 + 4 * 5, 2 + 4 * 5, 1 + 4 * 5,
+				iter + 3 + 4 * 5, iter + 1 + 4 * 5, iter + 0 + 4 * 5,
+				iter + 3 + 4 * 5, iter + 2 + 4 * 5, iter + 1 + 4 * 5,
+
+				//// Bottom
+				//iter + 3, iter + 1, iter + 0,
+				//iter + 3, iter + 2, iter + 1,	
+ 
+				//// Left
+				//iter + 7, iter + 5, iter + 4,
+				//iter + 7, iter + 6, iter + 5,
+ 
+				//// Front
+				//iter + 14, iter + 10, iter + 8,
+				//iter + 14, iter + 12, iter + 10,
+ 
+				//// Back
+				//iter + 21, iter + 15, iter + 12,
+				//iter + 21, iter + 18, iter + 15,
+ 
+				//// Right
+				//iter + 28, iter + 20, iter + 16,
+				//iter + 28, iter + 24, iter + 20,
+ 
+				//// Top
+				//iter + 35, iter + 25, iter + 20,
+				//iter + 35, iter + 30, iter + 25,
  
 			};
 			#endregion
