@@ -3,15 +3,39 @@ using UnityEngine;
 
 namespace AshleySeric.FenceWrangler
 {
+	[System.Serializable]
+	public class FenceSection
+	{
+		public Vector3 cornerPoint = new Vector3(1f, 0, 0);
+		/// <summary>
+		/// Flip which side the palings are palced on (if applicable).
+		/// </summary>
+		public bool flipFence;
+		/// <summary>
+		/// Modifies the height for this section of fence.
+		/// </summary>
+		public float heightModifier = 1f;
+		/// <summary>
+		/// Length in meters of this section of fence.
+		/// </summary>
+		public float length = 0f;
+		public FenceSection(Vector3 position)
+		{
+			this.cornerPoint = position;
+			this.heightModifier = 1f;
+		}
+	}
+
 	public class Fence : MonoBehaviour
 	{
 		//[SerializeField]
 		public FenceData fenceData;
-		public Vector3[] corners = new Vector3[]
+		public List<FenceSection> sections = new List<FenceSection>
 		{
-			new Vector3(1f, 0f, 0f),
-			new Vector3(2f, 0f, 0f)
+			new FenceSection(new Vector3(1f, 0, 0)),
+			new FenceSection(new Vector3(2f, 0, 1f))
 		};
+
 		private MeshFilter _mf;
 		private MeshRenderer _mr;
 		Mesh mesh = null;
@@ -61,7 +85,7 @@ namespace AshleySeric.FenceWrangler
 		}
 		public void BuildFence()
 		{
-			if (fenceData == null)
+			if (fenceData == null || sections.Count < 2)
 				return;
 			if (mesh == null)
 				mesh = new Mesh();
@@ -75,21 +99,21 @@ namespace AshleySeric.FenceWrangler
 			normals = new List<Vector3>();
 			uvs = new List<Vector2>();		
 
-			for (int i = 0, t = 1; i < corners.Length-1; i++)
+			for (int i = 0, t = 1; i < sections.Count-1; i++)
 			{
-				float dist = Vector3.Distance(corners[i], corners[i+1]);
+				float dist = Vector3.Distance(sections[i].cornerPoint, sections[i+1].cornerPoint);
 				if (dist <= Mathf.Epsilon) break;
 				float numberOfPosts = dist / fenceData.segmentLength;
 				for (int j = 0; j < (int)numberOfPosts + 1; j++, t++)
 				{
 					//Debug.Log("Adding post " + i + " | " + j);
-					AddPost(Vector3.Lerp(corners[i], corners[i+1], (float)j / numberOfPosts), Quaternion.LookRotation(corners[i+1] - corners[i], Vector3.up), t);
+					AddPost(Vector3.Lerp(sections[i].cornerPoint, sections[i+1].cornerPoint, (float)j / numberOfPosts), Quaternion.LookRotation(sections[i+1].cornerPoint - sections[i].cornerPoint, Vector3.up), t);
 				}
 				totalLength += dist;
 			}
 
 			// Add the last post as we end the loop before getting there.
-			AddPost(corners[corners.Length-1], Quaternion.identity);
+			AddPost(sections[sections.Count-1].cornerPoint, Quaternion.identity);
 
 			mesh.name = "Dynamic Fence";
 			mesh.SetVertices(verts);
@@ -272,6 +296,11 @@ namespace AshleySeric.FenceWrangler
 			uvs.AddRange(_uvs);
 			postCount++;
 		}
+		public void AddSection(Vector3 position)
+		{
+			sections.Add(new FenceSection(position));
+			BuildFence();
+		}
 		void OnValidate()
 		{
 			BuildFence();
@@ -279,10 +308,10 @@ namespace AshleySeric.FenceWrangler
 		private void OnDrawGizmos()
 		{
 			Gizmos.color = Color.green;
-			for (int i = 0; i < verts.Count; i++)
-			{
-				Gizmos.DrawSphere(verts[i], 0.03f);
-			}
+			//for (int i = 0; i < verts.Count; i++)
+			//{
+			//	Gizmos.DrawSphere(verts[i], 0.03f);
+			//}
 		}
 	}
 }

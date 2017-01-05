@@ -6,7 +6,10 @@ using UnityEngine;
 public class FenceData : ScriptableObject {
 
 	public enum FenceType { picket = 0, pool = 1, corrigatedIron = 2 }
+	public enum PicketStyle { arrow = 0, flat = 1 }
+
 	public FenceType type = 0;
+	public PicketStyle picketStyle;
 
 	[Range(0.1f, 50f)]
 	public float segmentLength = 2f;
