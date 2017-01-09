@@ -22,20 +22,20 @@ namespace AshleySeric.FenceWrangler
 			// Clear cached dataEditor to make sure it's recalled properly
 			dataEditor = null;
 		}
-
 		private void OnSceneGUI()
 		{
 			Fence fence = target as Fence;
-			if (fence.fenceData == null) return;
+			fence.ClampSelectionIndex();
+			if (fence.sections.Count == 0 || fence.sections[fence.selectedSectionIndex] == null) return;
 			Transform fenceTransform = fence.transform;
 
 			Quaternion handleRotation = Tools.pivotRotation == PivotRotation.Local ? fenceTransform.rotation : Quaternion.identity;
-			Handles.color = Color.white;
 
 			for (int i = 0; i < fence.sections.Count; i++)
 			{
+				Handles.color = fence.sections[i].data == null ? Color.red : Color.white;
 				EditorGUI.BeginChangeCheck();
-				fence.sections[i].cornerPoint = Handles.PositionHandle((fence.sections[i].cornerPoint), handleRotation);
+				fence.sections[i].cornerPoint = Handles.PositionHandle(fence.sections[i].cornerPoint, handleRotation);
 				if (EditorGUI.EndChangeCheck())
 					fence.BuildFence();
 				if (i < fence.sections.Count - 1)
@@ -69,19 +69,7 @@ namespace AshleySeric.FenceWrangler
 		{
 			serializedObject.Update();
 			Fence fence = target as Fence;
-			if (fence.fenceData)
-			{
-				if (dataEditor == null)
-					dataEditor = Editor.CreateEditor(fence.fenceData);
-				GUILayout.BeginVertical(EditorStyles.helpBox);
-				GUILayout.BeginHorizontal();
-				GUILayout.FlexibleSpace();
-				EditorGUILayout.LabelField(fence.fenceData.name + " (Preset)", EditorStyles.boldLabel);
-				GUILayout.FlexibleSpace();
-				GUILayout.EndHorizontal();
-				dataEditor.OnInspectorGUI();
-				GUILayout.EndVertical();
-			}
+			fence.ClampSelectionIndex();
 			if (GUILayout.Button("Update Fence"))
 				fence.BuildFence();
 			EditorGUILayout.Space();
@@ -90,9 +78,31 @@ namespace AshleySeric.FenceWrangler
 			EditorGUILayout.LabelField("Vertex Count: " + vertCountProp.intValue);
 			EditorGUILayout.Space();
 			//hide the sections list so we can manually draw that.
-			DrawPropertiesExcluding(serializedObject, "sections");
 
-			CustomEditorList.Display(serializedObject.FindProperty("sections"));
+			if (fence.sections.Count > 0)
+			{
+				if (fence.sections[fence.selectedSectionIndex].data)
+				{
+					if (dataEditor == null)
+						dataEditor = Editor.CreateEditor(fence.sections[fence.selectedSectionIndex].data);
+					GUILayout.BeginVertical(EditorStyles.helpBox);
+					GUILayout.BeginHorizontal();
+					GUILayout.FlexibleSpace();
+					EditorGUILayout.LabelField(fence.sections[fence.selectedSectionIndex].data.name + " (Preset)", EditorStyles.boldLabel);
+					GUILayout.FlexibleSpace();
+					GUILayout.EndHorizontal();
+					dataEditor.OnInspectorGUI();
+					GUILayout.EndVertical();
+				}
+				else
+				{
+					EditorGUILayout.HelpBox("No fence data associated with this section. Please add one.", MessageType.Error);
+				}
+			}
+
+			DrawPropertiesExcluding(serializedObject, "sections", "m_Script");
+
+			fence.selectedSectionIndex = CustomEditorList.DisplayAndGetIndex(serializedObject.FindProperty("sections"), fence.selectedSectionIndex, false, true, "Edit");
 
 			serializedObject.ApplyModifiedProperties();
 		}
