@@ -79,6 +79,9 @@ namespace AshleySeric.FenceWrangler
 		int vertexCount = 0;
 		[SerializeField]
 		[HideInInspector]
+		int triCount = 0;
+		[SerializeField]
+		[HideInInspector]
 		int postCount = 0;
 		[SerializeField]
 		[HideInInspector]
@@ -107,7 +110,7 @@ namespace AshleySeric.FenceWrangler
 			normals = new List<Vector3>();
 			uvs = new List<Vector2>();
 			int vertexTotal = 0;
-			Quaternion sectionAngle = Quaternion.identity;
+			Quaternion sectionRot = Quaternion.identity;
 
 			for (int i = 0; i < sections.Count-1; i++)
 			{
@@ -122,16 +125,13 @@ namespace AshleySeric.FenceWrangler
 				#region Don't Conform
 				if (fromSec.data.conform == FenceData.ConformMode.none)
 				{
-					Vector3 lookDirection = toSec.cornerPoint - fromSec.cornerPoint;
-					Vector3 lookPos = lookDirection;
-					if (fromSec.data.keepLevel)
-						lookPos.y = 0;
-
-					sectionAngle = Quaternion.LookRotation(lookPos);
-					Vector3 targetForward = sectionAngle * Vector3.forward;
-					Vector3 targetUp = sectionAngle * Vector3.up;
-					Vector3 targetLeft = sectionAngle * Vector3.left;
-
+					Vector3 lookDir = toSec.cornerPoint - fromSec.cornerPoint;
+					sectionRot = Quaternion.LookRotation(lookDir, Vector3.up);
+					Vector3 targetForward = sectionRot * Vector3.forward;
+					Vector3 targetUp = sectionRot * Vector3.up;
+					Vector3 targetLeft = sectionRot * Vector3.left;
+					//###
+					// Posts don't align with fence
 					for (int j = 0; j < (int)numberOfPosts + 1; j++)
 					{
 						Vector3 postPos = Vector3.Lerp(
@@ -141,47 +141,31 @@ namespace AshleySeric.FenceWrangler
 						// Add post
 						AddCube(
 							postPos,
-							sectionAngle,
+							Quaternion.FromToRotation(Vector3.forward, Vector3.up),
 							fromSec.data.postDimensions,
 							ref vertexTotal
 							);
 						postCount++;
-						//if we conform to the ground we want the rails to be build for each fence section.
-						if (fromSec.data.conform == FenceData.ConformMode.ground)
-						{
-							foreach (FenceData.Rail rail in fromSec.data.rails)
-							{
-								AddCube(
-									postPos + new Vector3(0, rail.heightOffset, 0),
-									sectionAngle,
-									 new Vector3(rail.dimensions.x, rail.dimensions.y, segmentLength),
-									ref vertexTotal
-									);
-							}
-						}
 					}
 					// If the fence is guaranteed to be strait we add the cross 
 					// rails for the whole length in one go to save geometry
-					if (fromSec.data.conform == FenceData.ConformMode.none)
+					float frontOffset = fromSec.flipFence ? 1f : -1f;
+					foreach (FenceData.Rail rail in fromSec.data.rails)
 					{
-						float frontOffset = fromSec.flipFence ? 1f : -1f;
-						foreach (FenceData.Rail rail in fromSec.data.rails)
-						{
-							AddCube(
-								fromSec.cornerPoint +
-								((((fromSec.data.postDimensions.x * 0.5f) + (rail.dimensions.x * 0.5f)) * frontOffset) * targetLeft) +
-								(sectionLength * 0.5f * targetForward) + (targetUp * rail.heightOffset),
-								sectionAngle,
-								 new Vector3(rail.dimensions.x, rail.dimensions.y, sectionLength),
-								ref vertexTotal
-								);
-						}
+						AddCube(
+							fromSec.cornerPoint +
+							((((fromSec.data.postDimensions.x * 0.5f) + (rail.dimensions.x * 0.5f)) * frontOffset) * targetLeft) +
+							(sectionLength * 0.5f * targetForward) + (targetUp * rail.heightOffset),
+							sectionRot,
+								new Vector3(rail.dimensions.x, rail.dimensions.y, sectionLength),
+							ref vertexTotal
+							);
 					}
 				}
 				#endregion
 				
 				#region Conform
-				if (fromSec.data.conform == FenceData.ConformMode.ground || fromSec.data.conform == FenceData.ConformMode.groundUpright)
+				if (fromSec.data.conform == FenceData.ConformMode.ground)
 				{
 					// we add 2 to the number of posts here since we want to
 					// want to be sure we get an end post as well.
@@ -198,7 +182,7 @@ namespace AshleySeric.FenceWrangler
 						if (Physics.Raycast(castPoint + (Vector3.up * 1000), Vector3.down, out hit))
 						{
 							postPositions[j] = hit.point;
-							postAngles[j] = fromSec.data.conform == FenceData.ConformMode.groundUpright ? Vector3.up : hit.normal;
+							postAngles[j] = hit.normal;
 						}
 						else
 						{
@@ -206,37 +190,52 @@ namespace AshleySeric.FenceWrangler
 							postAngles[j] = Vector3.up;
 						}
 					}
-					for (int j = 0; j < postPositions.Length - 1; j++)
+					for (int j = 0; j < postPositions.Length - 2; j++)
 					{
-						Vector3 curPostPos = postPositions[j];
-						Vector3 curPostAngle = postAngles[j];
-						Vector3 nextPost = postPositions[j + 1];
+						Vector3 cpPos = postPositions[j];
+						Vector3 npPos = postPositions[j + 1];
 
-						Quaternion postRot = Quaternion.identity;
-						switch(fromSec.data.conform)
-						{
-							case FenceData.ConformMode.ground:
-								postRot = Quaternion.LookRotation((curPostPos + (curPostAngle * 2)) - curPostPos);
-								break;
-							case FenceData.ConformMode.groundUpright:
-								//Vector3 tmp = nextPost - curPostPos;
-								//tmp.y = 0;
-								//FIX THIS SO THAT THE POSTS ALIGN TO THE FENCE ANGLE.
-								postRot = Quaternion.LookRotation((curPostPos + (curPostAngle * 2)) - curPostPos);
-								break;
-						}
-						
-						Vector3 postPos = curPostPos + (curPostAngle * fromSec.data.postDimensions.z * 0.5f);
+						// Find post rotations conforming to the ground normal.
+						Quaternion cpNormRot = Quaternion.LookRotation(((cpPos + (postAngles[j] * 2)) - cpPos), npPos - cpPos);
+						Quaternion npNormRot = Quaternion.LookRotation(((npPos + (postAngles[j+1] * 2)) - npPos), postPositions[j+2] - npPos);
+
+						// Find non-conforming post rotations.
+						Vector3 cpLV = npPos - cpPos;
+						cpLV.y = cpLV.y * -fromSec.data.tilt;
+						Quaternion cpLR = Quaternion.identity;
+						if (cpLV.sqrMagnitude > 0)
+							cpLR = Quaternion.LookRotation(cpLV, Vector3.up);
+						Quaternion cpStraitAngle = Quaternion.FromToRotation(Vector3.left, Vector3.right) * Quaternion.FromToRotation(cpLR * Vector3.forward, cpLR * Vector3.up) * cpLR;
+
+						Vector3 npLV = postPositions[j + 2] - npPos;
+						npLV.y = npLV.y * -fromSec.data.tilt;
+						Quaternion npLR = Quaternion.identity;
+						if (npLV.sqrMagnitude > 0)
+							npLR = Quaternion.LookRotation(npLV, Vector3.up);
+						Quaternion npStraitAngle = Quaternion.FromToRotation(Vector3.left, Vector3.right) * Quaternion.FromToRotation(npLR * Vector3.forward, npLR * Vector3.up) * npLR;
+
+						// Lerp post rotations depending on straitness value.
+						Quaternion cpRot = Quaternion.Slerp(cpNormRot, cpStraitAngle, 1f - fromSec.data.lean);
+						Quaternion npRot = Quaternion.Slerp(npNormRot, npStraitAngle, 1f - fromSec.data.lean);
+
+						// Direction vectors for posts facing upright.
+						Vector3 cpDir = (cpRot * Vector3.forward);
+						Vector3 npDir = (npRot * Vector3.forward);
+
+						// ####
+						// cpNormRot IS GOOD FOR THE ANGLE 
+						// BUT cpStraitAngle IS NOT ALIGNING WITH THE FENCE DIRECTION.
+
 						// Add post
 						AddCube(
-							postPos,
-							postRot,
+							cpPos + (cpDir * fromSec.data.postDimensions.z * 0.5f),
+							cpRot,
 							fromSec.data.postDimensions,
 							ref vertexTotal
 							);
 
 						postCount++;
-						//skip the last iteration as we only want to build the end post and not the rails.
+						//skip the last 3 iteration as we only want to build the end post and not the rails.
 						if (j != postPositions.Length - 2)
 						{
 							//if we conform to the ground we want the rails to be built for each fence section.
@@ -244,10 +243,10 @@ namespace AshleySeric.FenceWrangler
 							{
 								foreach (FenceData.Rail rail in fromSec.data.rails)
 								{
-									Vector3 railStart = curPostPos + (rail.heightOffset * curPostAngle);
-									Vector3 railEnd = nextPost + (rail.heightOffset * postAngles[j + 1]);
+									Vector3 railStart = cpPos + (rail.heightOffset * cpDir);
+									Vector3 railEnd = npPos + (rail.heightOffset * npDir);
 									float railLength = Vector3.Distance(railStart, railEnd);
-									Quaternion railRot = Quaternion.LookRotation(railEnd - railStart);
+									Quaternion railRot = Quaternion.LookRotation(railEnd - railStart, cpDir);
 									Vector3 railPos = railStart + (railRot * Vector3.forward * railLength * 0.5f);
 
 									AddCube(
@@ -276,6 +275,7 @@ namespace AshleySeric.FenceWrangler
 			mesh.RecalculateBounds();
 
 			vertexCount = mesh.vertexCount;
+			triCount = mesh.triangles.Length / 3;
 		}
 		/// <summary>
 		/// Call this before using the selection index for lookups as it may now be out of range.

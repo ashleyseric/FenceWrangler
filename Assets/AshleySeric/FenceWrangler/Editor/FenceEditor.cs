@@ -8,6 +8,7 @@ namespace AshleySeric.FenceWrangler
 	public class FenceEditor : Editor
 	{
 		SerializedProperty vertCountProp;
+		SerializedProperty triCountProp;
 		SerializedProperty postCountProp;
 		SerializedProperty totalLengthProp;
 		Editor dataEditor = null;
@@ -16,6 +17,7 @@ namespace AshleySeric.FenceWrangler
 		{
 			// Setup the SerializedProperties.
 			vertCountProp = serializedObject.FindProperty("vertexCount");
+			triCountProp = serializedObject.FindProperty("triCount");
 			postCountProp = serializedObject.FindProperty("postCount");
 			totalLengthProp = serializedObject.FindProperty("totalLength");
 
@@ -75,7 +77,8 @@ namespace AshleySeric.FenceWrangler
 			EditorGUILayout.Space();
 			EditorGUILayout.LabelField("Length: " + totalLengthProp.floatValue.ToString("F3") + "m");
 			EditorGUILayout.LabelField("Posts: " + postCountProp.intValue);
-			EditorGUILayout.LabelField("Vertex Count: " + vertCountProp.intValue);
+			EditorGUILayout.LabelField("Vertices: " + vertCountProp.intValue);
+			EditorGUILayout.LabelField("Triangles: " + triCountProp.intValue);
 			EditorGUILayout.Space();
 			//hide the sections list so we can manually draw that.
 
@@ -91,7 +94,13 @@ namespace AshleySeric.FenceWrangler
 					EditorGUILayout.LabelField(fence.sections[fence.selectedSectionIndex].data.name + " (Preset)", EditorStyles.boldLabel);
 					GUILayout.FlexibleSpace();
 					GUILayout.EndHorizontal();
+					EditorGUI.BeginChangeCheck();
 					dataEditor.OnInspectorGUI();
+					//Give us live updates when changing presets in the instpector.
+					if (EditorGUI.EndChangeCheck())
+					{
+						fence.BuildFence();
+					}
 					GUILayout.EndVertical();
 				}
 				else

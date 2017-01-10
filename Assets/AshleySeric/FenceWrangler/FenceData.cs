@@ -6,13 +6,16 @@ using UnityEngine;
 public class FenceData : ScriptableObject {
 
 	public enum FenceType { picket = 0, pool = 1, corrigatedIron = 2 }
-	public enum ConformMode { none = 0, ground = 1,  groundUpright = 2 }
+	public enum ConformMode { none = 0, ground = 1 }
 	public enum PicketStyle { arrow = 0, flat = 1 }
 
 	public FenceType type = 0;
 	public PicketStyle picketStyle;
 
-	public bool keepLevel = true;
+	[Range(0, 1)]
+	public float lean = 1f;
+	[Range(0, 1)]
+	public float tilt = 1f;
 	[Range(0.1f, 50f)]
 	public float segmentLength = 2f;
 	public Vector3 postDimensions = new Vector3(0.1f, 1f, 0.1f);
