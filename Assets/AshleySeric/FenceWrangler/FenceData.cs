@@ -1,16 +1,21 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
+/// <summary>
+/// Preset referenced by Fence class to determin how to build the fence.
+/// This should contain data that is relevent to the fence's construction only
+/// and not the fence's behaviour, behaviour is handled by the Fence class itself.
+/// </summary>
 [CreateAssetMenu(fileName = "New Fence", menuName = "Fence Data", order = 1)]
 public class FenceData : ScriptableObject {
 
-	public enum FenceType { picket = 0, pool = 1, corrigatedIron = 2 }
+	public enum FenceType { farm = 0 }
 	public enum ConformMode { none = 0, ground = 1 }
-	public enum PicketStyle { arrow = 0, flat = 1 }
+	public enum PostJoint { inset = 0, offset = 1 }
+	//public enum PicketStyle { arrow = 0, flat = 1 }
 
 	public FenceType type = 0;
-	public PicketStyle picketStyle;
+	//public PicketStyle picketStyle;
 
 	[Range(0, 1)]
 	public float lean = 1f;
@@ -18,8 +23,9 @@ public class FenceData : ScriptableObject {
 	public float tilt = 1f;
 	[Range(0.1f, 50f)]
 	public float segmentLength = 2f;
+	public PostJoint postJointMode = 0;
 	public Vector3 postDimensions = new Vector3(0.1f, 1f, 0.1f);
-	public ConformMode conform = 0;
+	public ConformMode conformMode = 0;
 
 	[System.Serializable]
 	public struct Rail
