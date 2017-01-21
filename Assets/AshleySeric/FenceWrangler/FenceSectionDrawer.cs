@@ -35,7 +35,6 @@ namespace AshleySeric.FenceWrangler
 			//Flip toggle button
 			SerializedProperty flipProp = property.FindPropertyRelative("flipFence");
 			flipProp.boolValue = GUI.Toggle(flipRect, flipProp.boolValue, new GUIContent("Flip", "Flip the facing direction of the fence"), EditorStyles.miniButton);
-
 			EditorGUI.LabelField(scaleLabelRect, new GUIContent("Height", "Height scale modifier for this section of fence"));
 			EditorGUI.PropertyField(scaleRect, property.FindPropertyRelative("heightModifier"), GUIContent.none);
 			EditorGUI.PropertyField(cornerPointRect, property.FindPropertyRelative("cornerPoint"), GUIContent.none);

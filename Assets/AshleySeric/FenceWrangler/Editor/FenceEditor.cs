@@ -10,6 +10,7 @@ namespace AshleySeric.FenceWrangler
 		SerializedProperty vertCountProp;
 		SerializedProperty triCountProp;
 		SerializedProperty postCountProp;
+		SerializedProperty picketCountProp;
 		SerializedProperty totalLengthProp;
 		Editor dataEditor = null;
 
@@ -19,6 +20,7 @@ namespace AshleySeric.FenceWrangler
 			vertCountProp = serializedObject.FindProperty("vertexCount");
 			triCountProp = serializedObject.FindProperty("triCount");
 			postCountProp = serializedObject.FindProperty("postCount");
+			picketCountProp = serializedObject.FindProperty("picketCount");
 			totalLengthProp = serializedObject.FindProperty("totalLength");
 
 			// Clear cached dataEditor to make sure it's recalled properly
@@ -77,6 +79,7 @@ namespace AshleySeric.FenceWrangler
 			EditorGUILayout.Space();
 			EditorGUILayout.LabelField("Length: " + totalLengthProp.floatValue.ToString("F3") + "m");
 			EditorGUILayout.LabelField("Posts: " + postCountProp.intValue);
+			EditorGUILayout.LabelField("Pickets: " + picketCountProp.intValue);
 			EditorGUILayout.LabelField("Vertices: " + vertCountProp.intValue);
 			EditorGUILayout.LabelField("Triangles: " + triCountProp.intValue);
 			EditorGUILayout.Space();

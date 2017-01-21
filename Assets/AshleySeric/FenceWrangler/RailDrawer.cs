@@ -30,9 +30,9 @@ namespace AshleySeric.FenceWrangler
 			//dimensionProp.vector2Value = EditorGUILayout.Vector2Field(GUIContent.none, dimensionProp.vector2Value, GUILayout.MinWidth(50));
 
 			EditorGUI.LabelField(hOffsetLabelRect, new GUIContent("Height", "Height scale modifier for this section of fence"));
-			EditorGUI.PropertyField(hOffsetRect, property.FindPropertyRelative("heightOffset"), GUIContent.none);
+			EditorGUI.PropertyField(hOffsetRect, property.FindPropertyRelative("groundOffset"), GUIContent.none);
 			EditorGUI.LabelField(dimensionsLabelRect, new GUIContent("Size", "Dimensions for this rail."));
-			EditorGUI.PropertyField(dimensionsRect, property.FindPropertyRelative("dimensions"), GUIContent.none);
+			EditorGUI.PropertyField(dimensionsRect, property.FindPropertyRelative("width"), GUIContent.none);
 			// Set indent back to what it was
 			
 			//reset indent level.
