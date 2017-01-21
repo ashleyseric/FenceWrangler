@@ -38,6 +38,9 @@ namespace AshleySeric.FenceWrangler
 	public class Fence : MonoBehaviour
 	{
 		[HideInInspector]
+		[SerializeField]
+		private bool editor_showPreset = true;
+		[HideInInspector]
 		public int selectedSectionIndex = 0;
 		public List<FenceSection> sections = new List<FenceSection>
 		{

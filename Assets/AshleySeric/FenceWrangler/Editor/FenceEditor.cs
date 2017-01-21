@@ -7,24 +7,24 @@ namespace AshleySeric.FenceWrangler
 	[CustomEditor(typeof(Fence))]
 	public class FenceEditor : Editor
 	{
+		SerializedProperty showPreset;
+
 		SerializedProperty vertCountProp;
 		SerializedProperty triCountProp;
 		SerializedProperty postCountProp;
 		SerializedProperty picketCountProp;
 		SerializedProperty totalLengthProp;
-		Editor dataEditor = null;
 
 		void OnEnable()
 		{
 			// Setup the SerializedProperties.
+			showPreset = serializedObject.FindProperty("editor_showPreset");
+
 			vertCountProp = serializedObject.FindProperty("vertexCount");
 			triCountProp = serializedObject.FindProperty("triCount");
 			postCountProp = serializedObject.FindProperty("postCount");
 			picketCountProp = serializedObject.FindProperty("picketCount");
 			totalLengthProp = serializedObject.FindProperty("totalLength");
-
-			// Clear cached dataEditor to make sure it's recalled properly
-			dataEditor = null;
 		}
 		private void OnSceneGUI()
 		{
@@ -68,7 +68,6 @@ namespace AshleySeric.FenceWrangler
 			}
 			#endregion
 		}
-
 		public override void OnInspectorGUI()
 		{
 			serializedObject.Update();
@@ -89,20 +88,23 @@ namespace AshleySeric.FenceWrangler
 			{
 				if (fence.sections[fence.selectedSectionIndex].data)
 				{
-					if (dataEditor == null)
-						dataEditor = Editor.CreateEditor(fence.sections[fence.selectedSectionIndex].data);
+					Editor dataEditor = Editor.CreateEditor(fence.sections[fence.selectedSectionIndex].data);
 					GUILayout.BeginVertical(EditorStyles.helpBox);
 					GUILayout.BeginHorizontal();
-					GUILayout.FlexibleSpace();
 					EditorGUILayout.LabelField(fence.sections[fence.selectedSectionIndex].data.name + " (Preset)", EditorStyles.boldLabel);
-					GUILayout.FlexibleSpace();
+					if (GUILayout.Button(showPreset.boolValue ? "Hide" : "Show", EditorStyles.miniButton, GUILayout.Width(50f)))
+						showPreset.boolValue = !showPreset.boolValue;
 					GUILayout.EndHorizontal();
-					EditorGUI.BeginChangeCheck();
-					dataEditor.OnInspectorGUI();
-					//Give us live updates when changing presets in the instpector.
-					if (EditorGUI.EndChangeCheck())
+					if (showPreset.boolValue)
 					{
-						fence.BuildFence();
+						EditorGUILayout.Space();
+						EditorGUI.BeginChangeCheck();
+						dataEditor.OnInspectorGUI();
+						//Give us live updates when changing presets in the instpector.
+						if (EditorGUI.EndChangeCheck())
+						{
+							fence.BuildFence();
+						}
 					}
 					GUILayout.EndVertical();
 				}

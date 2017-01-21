@@ -1,6 +1,6 @@
 fileFormatVersion: 2
 guid: f975fe2355b9c994798041c70714052d
-timeCreated: 1484968841
+timeCreated: 1484970938
 licenseType: Free
 SubstanceImporter:
   serializedVersion: 5
@@ -208,7 +208,7 @@ SubstanceImporter:
         texture: {instanceID: 0}
     - name: Roughness
       value:
-        scalar[0]: 0.25
+        scalar[0]: -1
         scalar[1]: 0
         scalar[2]: 0
         scalar[3]: 0

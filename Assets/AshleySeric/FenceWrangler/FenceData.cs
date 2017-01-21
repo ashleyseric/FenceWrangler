@@ -15,8 +15,6 @@ public class FenceData : ScriptableObject {
 	//public enum PicketStyle { arrow = 0, flat = 1 }
 
 	public FenceType type = 0;
-	
-
 	[Header("Conform")]
 	public ConformMode conformMode = 0;
 	[Range(0, 1)]
