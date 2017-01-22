@@ -395,6 +395,10 @@ namespace AshleySeric.FenceWrangler
 									// add offset to but the pickets agains the rails.
 									Quaternion picketRot = Quaternion.Slerp(cpRot, npRot, t);
 									Vector3 picketUp = picketRot * Vector3.forward;
+									//Vector3 alignVector = (npPos - Vector3.Lerp(picketStart, picketEnd, t)).normalized;
+									//picketRot = Quaternion.LookRotation(alignVector, picketRot * Vector3.forward);
+
+									//picketRot = Quaternion.LookRotation()
 									Vector3 picketLeft = picketRot * Vector3.left;
 
 									Vector3 vertOffset = picketUp * (halfPicketHeight + fromSec.data.picketGroundOffset);
