@@ -118,9 +118,12 @@ namespace AshleySeric.FenceWrangler
 			}
 
 			DrawPropertiesExcluding(serializedObject, "sections", "m_Script");
-
+			EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+			int indent = EditorGUI.indentLevel;
+			EditorGUI.indentLevel = 1;
 			fence.selectedSectionIndex = CustomEditorList.DisplayAndGetIndex(serializedObject.FindProperty("sections"), fence.selectedSectionIndex, false, true, "Edit");
-
+			EditorGUI.indentLevel = indent;
+			EditorGUILayout.EndVertical();
 			serializedObject.ApplyModifiedProperties();
 		}
 		//private void ValidateData()

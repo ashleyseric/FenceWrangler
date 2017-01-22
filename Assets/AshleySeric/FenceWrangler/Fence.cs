@@ -206,253 +206,259 @@ namespace AshleySeric.FenceWrangler
 				float halfPicketWidth = fromSec.data.picketDimensions.x * 0.5f;
 				float halfRailThickness = fromSec.data.railThickness * 0.5f;
 
-				float railOffset = fromSec.data.postJointMode == FenceData.PostJoint.inset ? 0f : halfPostWidth + halfRailThickness;
-				railOffset *= flipFactor;
+				float railCenterOffset = fromSec.data.postJointMode == FenceData.PostJoint.inset ? 0f : halfPostWidth + halfRailThickness;
+				railCenterOffset *= flipFactor;
 
-				#region Don't Conform
-				if (fromSec.data.conformMode == FenceData.ConformMode.none)
+				switch (fromSec.data.conformMode)
 				{
-					Vector3 secDir = (toSec.cornerPoint - fromSec.cornerPoint).normalized;
-					Vector3 lookDir = secDir;
-					lookDir.y = 0;
-					sectionRot = Quaternion.LookRotation(lookDir, Vector3.up);	
-					Quaternion postRot = Quaternion.FromToRotation(Vector3.left, Vector3.right) * Quaternion.FromToRotation(sectionRot * Vector3.forward, sectionRot * Vector3.up) * sectionRot;
+					case FenceData.ConformMode.none:
+						#region Don't Conform
+						Vector3 secDir = (toSec.cornerPoint - fromSec.cornerPoint).normalized;
+						Vector3 lookDir = secDir;
+						lookDir.y = 0;
+						sectionRot = Quaternion.LookRotation(lookDir, Vector3.up);	
+						Quaternion postRot = Quaternion.FromToRotation(Vector3.left, Vector3.right) * Quaternion.FromToRotation(sectionRot * Vector3.forward, sectionRot * Vector3.up) * sectionRot;
 
-					for (int j = 0; j < numberOfPosts + 1; j++)
-					{
-						bool lastPost = j == numberOfPosts;
-						Vector3 postPos = Vector3.Lerp(
-								fromSec.cornerPoint, toSec.cornerPoint,
-								(float)j / numberOfPosts);
-						// Add post
-						AddCube(
-							postPos + 
-							new Vector3(0f, halfPostHeight, 0f) + // Slide the post up to half way point
-							(secDir * -halfPostLength), //translate it back so the center of the post in the correct location.
-							postRot,
-							fromSec.data.postDimensions,
-							ref vertexTotal,
-							postMeshId
-							);
-						totalPosts++;
-
-						// Add pickets for this segment (if applicable)
-						if (fromSec.data.type == FenceData.FenceType.picket && !lastPost)
+						for (int j = 0; j < numberOfPosts + 1; j++)
 						{
-							Vector3 nextPostPos = Vector3.Lerp(
-								fromSec.cornerPoint, toSec.cornerPoint,
-								(float)(j + 1) / numberOfPosts);
-							// Remove the thickness of half a post at each end and
-							// add offset to but the pickets agains the rails.
-							Vector3 picketOffset = (postRot * (Vector3.right * flipFactor) * (halfPostWidth - halfPicketLength));
-							Vector3 picketStart = postPos + (secDir * halfPostLength) + picketOffset;
-							Vector3 picketEnd = nextPostPos - (secDir * halfPostLength) + picketOffset;
-
-							int picketsForThisSegment = Mathf.CeilToInt(
-								Vector3.Distance(picketStart, picketEnd) / 
-								(fromSec.data.picketDimensions.y + fromSec.data.picketGap)
+							bool lastPost = j == numberOfPosts;
+							Vector3 postPos = Vector3.Lerp(
+									fromSec.cornerPoint, toSec.cornerPoint,
+									(float)j / numberOfPosts);
+							// Add post
+							AddCube(
+								postPos + 
+								new Vector3(0f, halfPostHeight, 0f) + // Slide the post up to half way point
+								(secDir * -halfPostLength), //translate it back so the center of the post in the correct location.
+								postRot,
+								fromSec.data.postDimensions,
+								ref vertexTotal,
+								postMeshId
 								);
-							Vector3 picketHeightVec = sectionRot * Vector3.up * (halfPicketHeight + fromSec.data.picketGroundOffset);
-							//Debug.Log("Pickets: " + picketsForThisSegment);
-							//Debug.Log("Length: " + Vector3.Distance(picketStart, picketEnd));
-							for (int p = 0; p < picketsForThisSegment; p++)
-							{ 
-								Vector3 picketPos = Vector3.Lerp(
-									picketStart, picketEnd,
-									(float)p / picketsForThisSegment) +
-									picketHeightVec; // Slide picket up to half way.
-								// Add picket
-								AddCube(
-									picketPos,
-									postRot,
-									fromSec.data.picketDimensions,
-									ref vertexTotal,
-									picketMeshId
-									);
-								picketCount++;
-							}
-						}
-					}
-					totalPosts++;
-					// Add rails
-					foreach (FenceData.Rail rail in fromSec.data.rails)
-					{
-						Vector3 railStart = fromSec.cornerPoint + (rail.groundOffset * Vector3.up);
-						Vector3 railEnd = toSec.cornerPoint + (rail.groundOffset * Vector3.up);
-						float railLength = Vector3.Distance(railStart, railEnd);
-						Quaternion railRot = Quaternion.LookRotation(railEnd - railStart, Vector3.up);
-						Vector3 railPos = 
-							railStart + 
-							(railRot * Vector3.forward * railLength * 0.5f) + //offset allong the length so the center point of the cube is halfway down the fence section.
-							railOffset * (sectionRot * Vector3.left);
+							totalPosts++;
 
-						AddCube(
-							railPos,
-							railRot,
-							new Vector3(fromSec.data.railThickness, rail.width, railLength),
-							ref vertexTotal,
-							railMeshId
-							);
-					}
-				}
-				#endregion
-				
-				#region Conform
-				if (fromSec.data.conformMode == FenceData.ConformMode.ground)
-				{
-					// we add 2 to the number of posts here since we want to
-					// want to be sure we get an end post as well.
-					Vector3[] _postPositions = new Vector3[numberOfPostInt+2];
-					Vector3[] _postAngles = new Vector3[numberOfPostInt+2];
-					for (int j = 0; j < _postPositions.Length; j++)
-					{
-						Vector3 castPoint = Vector3.Lerp(
-								fromSec.cornerPoint,
-								toSec.cornerPoint,
-								(float)j / numberOfPosts
-								);
-						RaycastHit hit;
-						if (Physics.Raycast(castPoint + (Vector3.up * 1000), Vector3.down, out hit, 2000, conformMask))
-						{
-							_postPositions[j] = hit.point;
-							_postAngles[j] = hit.normal;
-						}
-						else
-						{
-							_postPositions[j] = castPoint;
-							_postAngles[j] = Vector3.up;
-						}
-					}
-					for (int j = 0; j < _postPositions.Length - 2; j++)
-					{
-						bool lastPost = j == _postPositions.Length - 2;
-						Vector3 cpPos = _postPositions[j];
-						Vector3 npPos = _postPositions[j + 1];
-
-						// Find post rotations conforming to the ground normal.
-						Quaternion cpNormRot = Quaternion.LookRotation(((cpPos + (_postAngles[j] * 2)) - cpPos), npPos - cpPos);
-						Quaternion npNormRot = Quaternion.LookRotation(((npPos + (_postAngles[j+1] * 2)) - npPos), _postPositions[j+2] - npPos);
-
-						cpPos += cpNormRot * Vector3.down * halfPostLength;
-						npPos += npNormRot * Vector3.down * halfPostLength;
-
-						// Find non-conforming post rotations.
-						Vector3 cpLV = npPos - cpPos;
-						cpLV.y = cpLV.y * -fromSec.data.tilt;
-						Quaternion cpLR = Quaternion.identity;
-						if (cpLV.sqrMagnitude > 0)
-							cpLR = Quaternion.LookRotation(cpLV, Vector3.up);
-						Quaternion cpStraitAngle = Quaternion.FromToRotation(Vector3.left, Vector3.right) * Quaternion.FromToRotation(cpLR * Vector3.forward, cpLR * Vector3.up) * cpLR;
-
-						Vector3 npLV = _postPositions[j + 2] - npPos;
-						npLV.y = npLV.y * -fromSec.data.tilt;
-						Quaternion npLR = Quaternion.identity;
-						if (npLV.sqrMagnitude > 0)
-							npLR = Quaternion.LookRotation(npLV, Vector3.up);
-						Quaternion npStraitAngle = Quaternion.FromToRotation(Vector3.left, Vector3.right) * Quaternion.FromToRotation(npLR * Vector3.forward, npLR * Vector3.up) * npLR;
-
-						// Lerp post rotations depending on straitness value.
-						Quaternion cpRot = Quaternion.Slerp(cpNormRot, cpStraitAngle, 1f - fromSec.data.lean);
-						Quaternion npRot = Quaternion.Slerp(npNormRot, npStraitAngle, 1f - fromSec.data.lean);
-
-						// Direction vectors for posts facing upright.
-						Vector3 cpDir = (cpRot * Vector3.forward);
-						Vector3 npDir = (npRot * Vector3.forward);
-
-						// ####
-						// cpNormRot IS GOOD FOR THE ANGLE 
-						// BUT cpStraitAngle IS NOT ALIGNING WITH THE FENCE DIRECTION.
-
-						// Add post
-						AddCube(
-							cpPos + (cpDir * fromSec.data.postDimensions.z * 0.5f),
-							cpRot,
-							fromSec.data.postDimensions,
-							ref vertexTotal,
-							postMeshId
-							);
-
-						totalPosts++;
-
-						// Add pickets
-						if (fromSec.data.type == FenceData.FenceType.picket && !lastPost)
-						{
-							Vector3 picketStart = cpPos + (cpRot * (Vector3.up * fromSec.data.postDimensions.y)); //
-							Vector3 picketEnd = npPos;
-
-							int picketsForThisSegment = Mathf.CeilToInt(
-								Vector3.Distance(picketStart, picketEnd) /
-								(fromSec.data.picketDimensions.y + fromSec.data.picketGap)
-								);
-
-							for (int p = 0; p < picketsForThisSegment; p++)
+							// Add pickets for this segment (if applicable)
+							if (fromSec.data.type == FenceData.FenceType.picket && !lastPost)
 							{
-								float t = (float)p / picketsForThisSegment;
-								// Remove the thickness of half a post at each end and
-								// add offset to but the pickets agains the rails.
-								Quaternion picketRot = Quaternion.Slerp(cpRot, npRot, t);
-								Vector3 picketUp = picketRot * Vector3.forward;
-								Vector3 picketLeft = picketRot * Vector3.left;
+								Vector3 nextPostPos = Vector3.Lerp(
+									fromSec.cornerPoint, toSec.cornerPoint,
+									(float)(j + 1) / numberOfPosts);
+
 
 								Vector3 picketOffset =
-									(picketUp * (halfPicketHeight + fromSec.data.picketGroundOffset)) +	// Center vertically
-									((picketLeft * (halfPostWidth - halfPicketWidth)) * flipFactor);					// Offset to connect with rail
+									postRot * Vector3.right *   // Remove the thickness of half a post at each end
+									 (railCenterOffset - ((halfRailThickness + halfPicketWidth)) * flipFactor);
+									//(halfPostWidth - halfPicketLength));		// add offset to but the pickets agains the rails.
+								Vector3 picketStart = postPos + (secDir * halfPostLength) + picketOffset;
+								Vector3 picketEnd = nextPostPos - (secDir * halfPostLength) + picketOffset;
 
-								Vector3 picketPos = Vector3.Lerp(picketStart + picketOffset, picketEnd + picketOffset, t); // Slide picket up to half way.
-								RaycastHit hit;
-								if (fromSec.data.picketConform != 0f && Physics.Raycast(picketPos + (1000f * picketUp), -picketUp, out hit, 2000f, conformMask))
-								{
-									picketPos = Vector3.Lerp(picketPos, hit.point + picketOffset, fromSec.data.picketConform);
-								}
-								AddCube(
-									picketPos,
-									picketRot,
-									fromSec.data.picketDimensions,
-									ref vertexTotal,
-									picketMeshId
+								int picketsForThisSegment = Mathf.CeilToInt(
+									Vector3.Distance(picketStart, picketEnd) / 
+									(fromSec.data.picketDimensions.y + fromSec.data.picketGap)
 									);
-								picketCount++;
-							}
-						}
-
-						// Build Rails
-						// skip the last 3 iteration as we only want to build the end post and not the rails.
-						if (j != _postPositions.Length - 2)
-						{
-							//if we conform to the ground we want the rails to be built for each fence section.
-							//if (fromSec.data.conform == FenceData.ConformMode.ground)
-							{
-								foreach (FenceData.Rail rail in fromSec.data.rails)
-								{
-									Vector3 railStart = 
-										cpPos + 
-										(rail.groundOffset * cpDir) +
-										(fromSec.data.postDimensions.y * 0.5f * (cpRot * Vector3.up)); //places the start point in the center of the current post.
-									Vector3 railEnd = 
-										npPos + 
-										(rail.groundOffset * npDir) + 
-										(fromSec.data.postDimensions.y * 0.5f * (npRot * Vector3.up)); //places the end point in the center of the next post.
-
-									float railLength = Vector3.Distance(railStart, railEnd);
-									Quaternion railRot = Quaternion.LookRotation(railEnd - railStart, cpDir);
-									Vector3 railPos = 
-										railStart + 
-										(railRot * Vector3.forward * railLength * 0.5f) +
-										(railOffset * (cpRot * Vector3.left));
-
+								Vector3 picketHeightVec = sectionRot * Vector3.up * (halfPicketHeight + fromSec.data.picketGroundOffset);
+								//Debug.Log("Pickets: " + picketsForThisSegment);
+								//Debug.Log("Length: " + Vector3.Distance(picketStart, picketEnd));
+								for (int p = 0; p < picketsForThisSegment; p++)
+								{ 
+									Vector3 picketPos = Vector3.Lerp(
+										picketStart, picketEnd,
+										(float)p / picketsForThisSegment) +
+										picketHeightVec; // Slide picket up to half way.
+									// Add picket
 									AddCube(
-										railPos,
-										railRot,
-										new Vector3(fromSec.data.railThickness, rail.width, railLength),
+										picketPos,
+										postRot,
+										fromSec.data.picketDimensions,
 										ref vertexTotal,
-										railMeshId
+										picketMeshId
 										);
+									picketCount++;
 								}
 							}
 						}
-					}
+						totalPosts++;
+						// Add rails
+						foreach (FenceData.Rail rail in fromSec.data.rails)
+						{
+							Vector3 railStart = fromSec.cornerPoint + (rail.groundOffset * Vector3.up);
+							Vector3 railEnd = toSec.cornerPoint + (rail.groundOffset * Vector3.up);
+							float railLength = Vector3.Distance(railStart, railEnd);
+							Quaternion railRot = Quaternion.LookRotation(railEnd - railStart, Vector3.up);
+							Vector3 railPos = 
+								railStart + 
+								(railRot * Vector3.forward * railLength * 0.5f) + //offset allong the length so the center point of the cube is halfway down the fence section.
+								railCenterOffset * (sectionRot * Vector3.left);
+
+							AddCube(
+								railPos,
+								railRot,
+								new Vector3(fromSec.data.railThickness, rail.width, railLength),
+								ref vertexTotal,
+								railMeshId
+								);
+						}
+						#endregion
+						break;
+
+					case FenceData.ConformMode.ground:
+						#region Conform
+						// we add 2 to the number of posts here since we want to
+						// want to be sure we get an end post as well.
+						Vector3[] _postPositions = new Vector3[numberOfPostInt + 2];
+						Vector3[] _postAngles = new Vector3[numberOfPostInt + 2];
+						for (int j = 0; j < _postPositions.Length; j++)
+						{
+							Vector3 castPoint = Vector3.Lerp(
+									fromSec.cornerPoint,
+									toSec.cornerPoint,
+									(float)j / numberOfPosts
+									);
+							RaycastHit hit;
+							if (Physics.Raycast(castPoint + (Vector3.up * 1000), Vector3.down, out hit, 2000, conformMask))
+							{
+								_postPositions[j] = hit.point;
+								_postAngles[j] = hit.normal;
+							}
+							else
+							{
+								_postPositions[j] = castPoint;
+								_postAngles[j] = Vector3.up;
+							}
+						}
+						for (int j = 0; j < _postPositions.Length - 2; j++)
+						{
+							bool lastPost = j == _postPositions.Length - 2;
+							Vector3 cpPos = _postPositions[j];
+							Vector3 npPos = _postPositions[j + 1];
+
+							// Find post rotations conforming to the ground normal.
+							Quaternion cpNormRot = Quaternion.LookRotation(((cpPos + (_postAngles[j] * 2)) - cpPos), npPos - cpPos);
+							Quaternion npNormRot = Quaternion.LookRotation(((npPos + (_postAngles[j + 1] * 2)) - npPos), _postPositions[j + 2] - npPos);
+
+							cpPos += cpNormRot * Vector3.down * halfPostLength;
+							npPos += npNormRot * Vector3.down * halfPostLength;
+
+							// Find non-conforming post rotations.
+							Vector3 cpLV = npPos - cpPos;
+							cpLV.y = cpLV.y * -fromSec.data.tilt;
+							Quaternion cpLR = Quaternion.identity;
+							if (cpLV.sqrMagnitude > 0)
+								cpLR = Quaternion.LookRotation(cpLV, Vector3.up);
+							Quaternion cpStraitAngle = Quaternion.FromToRotation(Vector3.left, Vector3.right) * Quaternion.FromToRotation(cpLR * Vector3.forward, cpLR * Vector3.up) * cpLR;
+
+							Vector3 npLV = _postPositions[j + 2] - npPos;
+							npLV.y = npLV.y * -fromSec.data.tilt;
+							Quaternion npLR = Quaternion.identity;
+							if (npLV.sqrMagnitude > 0)
+								npLR = Quaternion.LookRotation(npLV, Vector3.up);
+							Quaternion npStraitAngle = Quaternion.FromToRotation(Vector3.left, Vector3.right) * Quaternion.FromToRotation(npLR * Vector3.forward, npLR * Vector3.up) * npLR;
+
+							// Lerp post rotations depending on straitness value.
+							Quaternion cpRot = Quaternion.Slerp(cpNormRot, cpStraitAngle, 1f - fromSec.data.lean);
+							Quaternion npRot = Quaternion.Slerp(npNormRot, npStraitAngle, 1f - fromSec.data.lean);
+
+							// Direction vectors for posts facing upright.
+							Vector3 cpDir = (cpRot * Vector3.forward);
+							Vector3 npDir = (npRot * Vector3.forward);
+
+							// ####
+							// cpNormRot IS GOOD FOR THE ANGLE 
+							// BUT cpStraitAngle IS NOT ALIGNING WITH THE FENCE DIRECTION.
+
+							// Add post
+							AddCube(
+								cpPos + (cpDir * fromSec.data.postDimensions.z * 0.5f),
+								cpRot,
+								fromSec.data.postDimensions,
+								ref vertexTotal,
+								postMeshId
+								);
+
+							totalPosts++;
+
+							// Add pickets
+							if (fromSec.data.type == FenceData.FenceType.picket && !lastPost)
+							{
+								Vector3 picketStart = cpPos + (cpRot * (Vector3.up * fromSec.data.postDimensions.y)); //
+								Vector3 picketEnd = npPos;
+
+								int picketsForThisSegment = Mathf.CeilToInt(
+									Vector3.Distance(picketStart, picketEnd) /
+									(fromSec.data.picketDimensions.y + fromSec.data.picketGap)
+									);
+
+								for (int p = 0; p < picketsForThisSegment; p++)
+								{
+									float t = (float)p / picketsForThisSegment;
+									// Remove the thickness of half a post at each end and
+									// add offset to but the pickets agains the rails.
+									Quaternion picketRot = Quaternion.Slerp(cpRot, npRot, t);
+									Vector3 picketUp = picketRot * Vector3.forward;
+									Vector3 picketLeft = picketRot * Vector3.left;
+
+									Vector3 vertOffset = picketUp * (halfPicketHeight + fromSec.data.picketGroundOffset);
+									Vector3 horizOffset = picketLeft * (railCenterOffset - ((halfRailThickness + halfPicketWidth) * flipFactor));
+									Vector3 combinedOffset = vertOffset + horizOffset;
+
+									Vector3 picketStraitPos = Vector3.Lerp(picketStart + combinedOffset, picketEnd + combinedOffset, t); // Slide picket up to half way.
+									Vector3 picketConformPos = new Vector3();
+									RaycastHit hit;
+									if (fromSec.data.picketConform != 0f && Physics.Raycast(picketStraitPos + (1000f * picketUp), -picketUp, out hit, 2000f, conformMask))
+									{
+										// We don't want to apply the full offset since we've already translated it to connect with the rails.
+										picketConformPos = hit.point + vertOffset;
+									}
+									AddCube(
+										Vector3.Lerp(picketStraitPos, picketConformPos, fromSec.data.picketConform),
+										picketRot,
+										fromSec.data.picketDimensions,
+										ref vertexTotal,
+										picketMeshId
+										);
+									picketCount++;
+								}
+							}
+
+							// Build Rails
+							// skip the last 3 iteration as we only want to build the end post and not the rails.
+							if (j != _postPositions.Length - 2)
+							{
+								//if we conform to the ground we want the rails to be built for each fence section.
+								//if (fromSec.data.conform == FenceData.ConformMode.ground)
+								{
+									foreach (FenceData.Rail rail in fromSec.data.rails)
+									{
+										Vector3 railStart =
+											cpPos +
+											(rail.groundOffset * cpDir) +
+											(halfPostLength * (cpRot * Vector3.up)); //places the start point in the center of the current post.
+										Vector3 railEnd =
+											npPos +
+											(rail.groundOffset * npDir) +
+											(halfPostLength * (npRot * Vector3.up)); //places the end point in the center of the next post.
+
+										float railLength = Vector3.Distance(railStart, railEnd);
+										Quaternion railRot = Quaternion.LookRotation(railEnd - railStart, cpDir);
+										Vector3 railPos =
+											railStart +
+											(railRot * Vector3.forward * railLength * 0.5f) +
+											(railCenterOffset * (cpRot * Vector3.left));
+
+										AddCube(
+											railPos,
+											railRot,
+											new Vector3(fromSec.data.railThickness, rail.width, railLength),
+											ref vertexTotal,
+											railMeshId
+											);
+									}
+								}
+							}
+						}
+						#endregion
+						break;
 				}
-				#endregion
 				totalLength += sectionLength;
 			}
 
