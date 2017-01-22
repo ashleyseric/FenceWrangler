@@ -49,7 +49,7 @@ namespace AshleySeric.FenceWrangler
 		};
 		private MeshFilter _mf;
 		private MeshRenderer _mr;
-		private MeshFilter meshFilter
+		public MeshFilter meshFilter
 		{
 			get
 			{
@@ -57,7 +57,7 @@ namespace AshleySeric.FenceWrangler
 				return _mf;
 			}
 		}
-		private MeshRenderer meshRenderer
+		public MeshRenderer meshRenderer
 		{
 			get
 			{
@@ -84,7 +84,7 @@ namespace AshleySeric.FenceWrangler
 		int triCount = 0;
 		[SerializeField]
 		[HideInInspector]
-		int postCount = 0;
+		int totalPosts = 0;
 		[SerializeField]
 		[HideInInspector]
 		int picketCount = 0;
@@ -122,7 +122,7 @@ namespace AshleySeric.FenceWrangler
 				mesh = new Mesh();
 
 			totalLength = 0f;
-			postCount = 0;
+			totalPosts = 0;
 			picketCount = 0;
 
 			mesh.Clear();
@@ -133,6 +133,54 @@ namespace AshleySeric.FenceWrangler
 			int vertexTotal = 0;
 			Quaternion sectionRot = Quaternion.identity;
 
+			//List<float> postCounts = new List<float>(); // number of posts for each section
+			//List<Vector3> postPositions = new List<Vector3>(); // positions of each post
+			//List<Vector3> postAngles = new List<Vector3>(); // angle of each post
+
+			//// Find all the post positions and angles first.
+			//for (int i = 0; i < sections.Count - 1; i++)
+			//{
+			//	FenceSection fromSec = sections[i];
+			//	FenceSection toSec = sections[i + 1];
+			//	if (fromSec.data == null) continue;
+			//	float sectionLength = Vector3.Distance(fromSec.cornerPoint, toSec.cornerPoint);
+			//	if (sectionLength <= Mathf.Epsilon) break;
+
+			//	postCounts.Add(sectionLength / fromSec.data.segmentLength);
+
+			//	for (int j = 0; j < postCounts[i]; j++)
+			//	{
+			//		Vector3 castPoint = Vector3.Lerp(
+			//				fromSec.cornerPoint,
+			//				toSec.cornerPoint,
+			//				(float)j / postCounts[i]
+			//				);
+			//		RaycastHit hit;
+			//		if (Physics.Raycast(castPoint + (Vector3.up * 1000), Vector3.down, out hit, 2000, conformMask))
+			//		{
+			//			postPositions.Add(hit.point);
+			//			postAngles.Add(hit.normal);
+			//		}
+			//		else
+			//		{
+			//			postPositions.Add(castPoint);
+			//			postAngles.Add(Vector3.up);
+			//		}
+			//	}
+			//}
+
+			//for (int i = 0; i < postPositions.Count - 1; i++)
+			//{
+			//	AddCube(
+			//		postPositions[i],
+			//		Quaternion.LookRotation(postAngles[i]),
+			//		new Vector3(.1f, .1f, 3f),
+			//		ref vertexTotal,
+			//		3
+			//		);
+			//}
+
+			// Then we can build the fence pieces
 			for (int i = 0; i < sections.Count-1; i++)
 			{
 				FenceSection fromSec = sections[i];
@@ -186,7 +234,7 @@ namespace AshleySeric.FenceWrangler
 							ref vertexTotal,
 							postMeshId
 							);
-						postCount++;
+						totalPosts++;
 
 						// Add pickets for this segment (if applicable)
 						if (fromSec.data.type == FenceData.FenceType.picket && !lastPost)
@@ -204,7 +252,7 @@ namespace AshleySeric.FenceWrangler
 								Vector3.Distance(picketStart, picketEnd) / 
 								(fromSec.data.picketDimensions.y + fromSec.data.picketGap)
 								);
-							Vector3 picketHeightVec = sectionRot * Vector3.up * halfPicketHeight;
+							Vector3 picketHeightVec = sectionRot * Vector3.up * (halfPicketHeight + fromSec.data.picketGroundOffset);
 							//Debug.Log("Pickets: " + picketsForThisSegment);
 							//Debug.Log("Length: " + Vector3.Distance(picketStart, picketEnd));
 							for (int p = 0; p < picketsForThisSegment; p++)
@@ -225,7 +273,7 @@ namespace AshleySeric.FenceWrangler
 							}
 						}
 					}
-					postCount++;
+					totalPosts++;
 					// Add rails
 					foreach (FenceData.Rail rail in fromSec.data.rails)
 					{
@@ -254,9 +302,9 @@ namespace AshleySeric.FenceWrangler
 				{
 					// we add 2 to the number of posts here since we want to
 					// want to be sure we get an end post as well.
-					Vector3[] postPositions = new Vector3[numberOfPostInt+2];
-					Vector3[] postAngles = new Vector3[numberOfPostInt+2];
-					for (int j = 0; j < postPositions.Length; j++)
+					Vector3[] _postPositions = new Vector3[numberOfPostInt+2];
+					Vector3[] _postAngles = new Vector3[numberOfPostInt+2];
+					for (int j = 0; j < _postPositions.Length; j++)
 					{
 						Vector3 castPoint = Vector3.Lerp(
 								fromSec.cornerPoint,
@@ -266,24 +314,24 @@ namespace AshleySeric.FenceWrangler
 						RaycastHit hit;
 						if (Physics.Raycast(castPoint + (Vector3.up * 1000), Vector3.down, out hit, 2000, conformMask))
 						{
-							postPositions[j] = hit.point;
-							postAngles[j] = hit.normal;
+							_postPositions[j] = hit.point;
+							_postAngles[j] = hit.normal;
 						}
 						else
 						{
-							postPositions[j] = castPoint;
-							postAngles[j] = Vector3.up;
+							_postPositions[j] = castPoint;
+							_postAngles[j] = Vector3.up;
 						}
 					}
-					for (int j = 0; j < postPositions.Length - 2; j++)
+					for (int j = 0; j < _postPositions.Length - 2; j++)
 					{
-						bool lastPost = j == postPositions.Length - 2;
-						Vector3 cpPos = postPositions[j];
-						Vector3 npPos = postPositions[j + 1];
+						bool lastPost = j == _postPositions.Length - 2;
+						Vector3 cpPos = _postPositions[j];
+						Vector3 npPos = _postPositions[j + 1];
 
 						// Find post rotations conforming to the ground normal.
-						Quaternion cpNormRot = Quaternion.LookRotation(((cpPos + (postAngles[j] * 2)) - cpPos), npPos - cpPos);
-						Quaternion npNormRot = Quaternion.LookRotation(((npPos + (postAngles[j+1] * 2)) - npPos), postPositions[j+2] - npPos);
+						Quaternion cpNormRot = Quaternion.LookRotation(((cpPos + (_postAngles[j] * 2)) - cpPos), npPos - cpPos);
+						Quaternion npNormRot = Quaternion.LookRotation(((npPos + (_postAngles[j+1] * 2)) - npPos), _postPositions[j+2] - npPos);
 
 						cpPos += cpNormRot * Vector3.down * halfPostLength;
 						npPos += npNormRot * Vector3.down * halfPostLength;
@@ -296,7 +344,7 @@ namespace AshleySeric.FenceWrangler
 							cpLR = Quaternion.LookRotation(cpLV, Vector3.up);
 						Quaternion cpStraitAngle = Quaternion.FromToRotation(Vector3.left, Vector3.right) * Quaternion.FromToRotation(cpLR * Vector3.forward, cpLR * Vector3.up) * cpLR;
 
-						Vector3 npLV = postPositions[j + 2] - npPos;
+						Vector3 npLV = _postPositions[j + 2] - npPos;
 						npLV.y = npLV.y * -fromSec.data.tilt;
 						Quaternion npLR = Quaternion.identity;
 						if (npLV.sqrMagnitude > 0)
@@ -324,7 +372,7 @@ namespace AshleySeric.FenceWrangler
 							postMeshId
 							);
 
-						postCount++;
+						totalPosts++;
 
 						// Add pickets
 						if (fromSec.data.type == FenceData.FenceType.picket && !lastPost)
@@ -369,7 +417,7 @@ namespace AshleySeric.FenceWrangler
 
 						// Build Rails
 						// skip the last 3 iteration as we only want to build the end post and not the rails.
-						if (j != postPositions.Length - 2)
+						if (j != _postPositions.Length - 2)
 						{
 							//if we conform to the ground we want the rails to be built for each fence section.
 							//if (fromSec.data.conform == FenceData.ConformMode.ground)

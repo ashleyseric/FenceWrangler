@@ -14,7 +14,17 @@ namespace AshleySeric.FenceWrangler
 		SerializedProperty postCountProp;
 		SerializedProperty picketCountProp;
 		SerializedProperty totalLengthProp;
+		GUIStyle prevLabel;
 
+		//private PreviewRenderUtility _previewRenderUtility;
+		//private MeshFilter _targetMeshFilter;
+		//private MeshRenderer _targetMeshRenderer;
+
+		void Awake()
+		{
+			prevLabel = new GUIStyle(EditorStyles.centeredGreyMiniLabel);
+			prevLabel.alignment = TextAnchor.UpperLeft;
+		}
 		void OnEnable()
 		{
 			// Setup the SerializedProperties.
@@ -22,7 +32,7 @@ namespace AshleySeric.FenceWrangler
 
 			vertCountProp = serializedObject.FindProperty("vertexCount");
 			triCountProp = serializedObject.FindProperty("triCount");
-			postCountProp = serializedObject.FindProperty("postCount");
+			postCountProp = serializedObject.FindProperty("totalPosts");
 			picketCountProp = serializedObject.FindProperty("picketCount");
 			totalLengthProp = serializedObject.FindProperty("totalLength");
 		}
@@ -75,15 +85,8 @@ namespace AshleySeric.FenceWrangler
 			fence.ClampSelectionIndex();
 			if (GUILayout.Button("Update Fence"))
 				fence.BuildFence();
-			EditorGUILayout.Space();
-			EditorGUILayout.LabelField("Length: " + totalLengthProp.floatValue.ToString("F3") + "m");
-			EditorGUILayout.LabelField("Posts: " + postCountProp.intValue);
-			EditorGUILayout.LabelField("Pickets: " + picketCountProp.intValue);
-			EditorGUILayout.LabelField("Vertices: " + vertCountProp.intValue);
-			EditorGUILayout.LabelField("Triangles: " + triCountProp.intValue);
-			EditorGUILayout.Space();
-			//hide the sections list so we can manually draw that.
 
+			//hide the sections list so we can manually draw it.
 			if (fence.sections.Count > 0)
 			{
 				if (fence.sections[fence.selectedSectionIndex].data)
@@ -119,6 +122,54 @@ namespace AshleySeric.FenceWrangler
 			fence.selectedSectionIndex = CustomEditorList.DisplayAndGetIndex(serializedObject.FindProperty("sections"), fence.selectedSectionIndex, false, true, "Edit");
 
 			serializedObject.ApplyModifiedProperties();
+		}
+		//private void ValidateData()
+		//{
+		//	if (_previewRenderUtility == null)
+		//	{
+		//		_previewRenderUtility = new PreviewRenderUtility();
+		//		_previewRenderUtility.m_Camera.transform.position = new Vector3(0, 0, -6);
+		//		_previewRenderUtility.m_Camera.transform.rotation = Quaternion.identity;
+		//	}
+		//	//	Fence fence = (Fence)target as Fence;
+		//	//	_targetMeshFilter = fence.meshFilter;
+		//	//	_targetMeshRenderer = fence.meshRenderer;//_targetMeshFilter.GetComponent<MeshRenderer>();
+		//}
+		public override bool HasPreviewGUI()
+		{
+			//ValidateData();
+			return true;
+		}
+		public override void OnPreviewGUI(Rect r, GUIStyle background)
+		{
+			// Only render the preview on a repaint event (not continuously)
+			if (Event.current.type == EventType.Repaint)
+			{
+				// Draw info table
+				int labelHeight = 15;
+				int cellWidth = 80;
+				GUI.Label(new Rect(r.x, r.y, cellWidth, labelHeight), "Length:", prevLabel);
+				GUI.Label(new Rect(r.x + cellWidth, r.y, cellWidth, labelHeight), totalLengthProp.floatValue + " m", prevLabel);
+				GUI.Label(new Rect(r.x, r.y + (labelHeight), cellWidth, labelHeight), "Posts:", prevLabel);
+				GUI.Label(new Rect(r.x + cellWidth, r.y + (labelHeight), cellWidth, labelHeight), postCountProp.intValue.ToString(), prevLabel);
+				GUI.Label(new Rect(r.x, r.y + (labelHeight*2), cellWidth, labelHeight), "Pickets:", prevLabel);
+				GUI.Label(new Rect(r.x + cellWidth, r.y + (labelHeight*2), cellWidth, labelHeight), picketCountProp.intValue.ToString(), prevLabel);
+				GUI.Label(new Rect(r.x, r.y + (labelHeight*3), cellWidth, labelHeight), "Verticies:", prevLabel);
+				GUI.Label(new Rect(r.x + cellWidth, r.y + (labelHeight * 3), cellWidth, labelHeight), vertCountProp.intValue.ToString(), prevLabel);
+				GUI.Label(new Rect(r.x, r.y + (labelHeight*4), cellWidth, labelHeight), "Triangles:", prevLabel);
+				GUI.Label(new Rect(r.x + cellWidth, r.y + (labelHeight * 4), cellWidth, labelHeight), triCountProp.intValue.ToString(), prevLabel);
+
+				// Initialize the preview
+				//_previewRenderUtility.BeginPreview(r, background);
+				// Add mesh to preview
+				//_previewRenderUtility.DrawMesh(_targetMeshFilter.sharedMesh, Matrix4x4.identity, _targetMeshRenderer.sharedMaterial, 0);
+				// Render the preview
+				//_previewRenderUtility.m_Camera.Render();
+				// Store the render result.
+				//Texture resultRender = _previewRenderUtility.EndPreview();
+				// Draw resulting texture into the preview area.
+				//GUI.DrawTexture(r, resultRender, ScaleMode.StretchToFill, false);
+			}
 		}
 	}
 }

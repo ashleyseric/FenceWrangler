@@ -55,9 +55,10 @@ public class FenceData : ScriptableObject {
 		new Rail(0.3f, 0.1f)
 	};
 
-
-	//void OnValidate()
-	//{
-		//Debug.Log("Validating");
-	//}
+	[SerializeField]
+	private bool _isDirty = false;
+	void OnValidate()
+	{
+		_isDirty = true;
+	}
 }
