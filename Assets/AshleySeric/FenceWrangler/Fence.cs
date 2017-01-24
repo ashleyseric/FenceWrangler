@@ -42,11 +42,7 @@ namespace AshleySeric.FenceWrangler
 		private bool editor_showPreset = true;
 		[HideInInspector]
 		public int selectedSectionIndex = 0;
-		public List<FenceSection> sections = new List<FenceSection>
-		{
-			new FenceSection(new Vector3(1f, 0, 0), null),
-			new FenceSection(new Vector3(2f, 0, 1f), null)
-		};
+		public List<FenceSection> sections = new List<FenceSection>();
 		private MeshFilter _mf;
 		private MeshRenderer _mr;
 		public MeshFilter meshFilter
@@ -690,9 +686,12 @@ namespace AshleySeric.FenceWrangler
 			normals.AddRange(_normals);
 			uvs.AddRange(_uvs);
 		}
-		public void AddSection(Vector3 position)
+		public void AddSection(Vector3 _pos, FenceData _data = null)
 		{
-			sections.Add(new FenceSection(position, sections.Count > 0 ? sections[sections.Count - 1].data : null));
+			FenceData d = null;
+			if (_data) d = _data;
+			else d = sections.Count > 0 ? sections[sections.Count - 1].data : null;
+			sections.Add(new FenceSection(_pos, d));
 			BuildFence();
 		}
 		void OnValidate()
