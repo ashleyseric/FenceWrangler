@@ -1,6 +1,6 @@
 fileFormatVersion: 2
 guid: f975fe2355b9c994798041c70714052d
-timeCreated: 1485048695
+timeCreated: 1485589366
 licenseType: Free
 SubstanceImporter:
   serializedVersion: 5
@@ -10,7 +10,7 @@ SubstanceImporter:
     prototypeName: Wood_Boards
     shaderName: 
     shader: {fileID: 46, guid: 0000000000000000f000000000000000, type: 0}
-    shaderKeywords: 
+    shaderKeywords: _EMISSION _METALLICGLOSSMAP _NORMALMAP
     renderQueue: -1
     lightmapFlags: 5
     inputs:

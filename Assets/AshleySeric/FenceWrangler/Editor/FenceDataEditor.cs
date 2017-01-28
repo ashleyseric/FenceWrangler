@@ -6,9 +6,16 @@ namespace AshleySeric.FenceWrangler
 	[CustomEditor(typeof(FenceData))]
 	public class FenceDataEditor : Editor
 	{
+		protected static bool showPreview = true;
+		protected static bool showPosts = false;
+		protected static bool showPickets = false;
+		protected static bool showConform = false;
+		protected static bool showRails = false;
+
 		private SerializedProperty fenceType;
 		// Conform Mode
 		private SerializedProperty conformMode;
+		private SerializedProperty allowObstructions;
 		private SerializedProperty lean;
 		private SerializedProperty tilt;
 		private SerializedProperty picketConform;
@@ -24,7 +31,9 @@ namespace AshleySeric.FenceWrangler
 		private SerializedProperty railThickness;
 		private SerializedProperty rails;
 
-		private SerializedProperty isDirty;
+		// Materials
+		private SerializedProperty materials;
+	
 		private Material _lineMaterial;
 		private Material lineMaterial
 		{
@@ -55,6 +64,7 @@ namespace AshleySeric.FenceWrangler
 			fenceType = serializedObject.FindProperty("type");
 			// Conform Mode
 			conformMode = serializedObject.FindProperty("conformMode");
+			allowObstructions = serializedObject.FindProperty("allowObstructions");
 			lean = serializedObject.FindProperty("lean");
 			tilt = serializedObject.FindProperty("tilt");
 			picketConform = serializedObject.FindProperty("picketConform");
@@ -70,12 +80,16 @@ namespace AshleySeric.FenceWrangler
 			railThickness = serializedObject.FindProperty("railThickness");
 			rails = serializedObject.FindProperty("rails");
 
-			isDirty = serializedObject.FindProperty("_isDirty");
+			// Materials
+			materials = serializedObject.FindProperty("materials");
+
+			// Initialize the preview
+			UpdatePreviewTexture(256, 256);
 		}
 		public override void OnInspectorGUI()
 		{
 			serializedObject.Update();
-			FenceData data = target as FenceData;
+			FenceData fenceData = target as FenceData;
 			//DrawPropertiesExcluding(serializedObject, "rails", "m_Script");
 
 			EditorGUILayout.PropertyField(fenceType);
@@ -83,59 +97,88 @@ namespace AshleySeric.FenceWrangler
 
 			// Conform
 			GUILayout.BeginVertical(EditorStyles.helpBox);
-			EditorGUILayout.PropertyField(conformMode);
-			if (conformMode.enumValueIndex == 1)
+			if (IndentFoldout(ref showConform, "Conform"))
 			{
-				EditorGUILayout.PropertyField(lean);
-				EditorGUILayout.PropertyField(tilt);
-				if (fenceType.enumValueIndex == 1) //picket
-					EditorGUILayout.PropertyField(picketConform);
+				EditorGUILayout.PropertyField(conformMode);
+				if (conformMode.enumValueIndex == 1)
+				{
+					EditorGUILayout.PropertyField(allowObstructions);
+					EditorGUILayout.PropertyField(lean);
+					EditorGUILayout.PropertyField(tilt);
+					if (fenceType.enumValueIndex == 1) //picket
+						EditorGUILayout.PropertyField(picketConform);
+				}
+				EditorGUILayout.Space();
 			}
-			EditorGUILayout.Space();
 			GUILayout.EndVertical();
 			// Posts
 			GUILayout.BeginVertical(EditorStyles.helpBox);
-			EditorGUILayout.PropertyField(segmentLength);
-			EditorGUILayout.PropertyField(postDimensions);
-			EditorGUILayout.PropertyField(postJointMode);
-			EditorGUILayout.Space();
+			if (IndentFoldout(ref showPosts, "Posts"))
+			{
+				EditorGUILayout.PropertyField(segmentLength);
+				EditorGUILayout.PropertyField(postDimensions);
+				EditorGUILayout.PropertyField(postJointMode);
+				EditorGUILayout.Space();
+			}
+			GUILayout.EndVertical();
+			// Rails
+			GUILayout.BeginVertical(EditorStyles.helpBox);
+			if (IndentFoldout(ref showRails, "Rails"))
+			{
+				EditorGUILayout.PropertyField(railThickness);
+				EditorGUI.indentLevel += 1;
+				CustomEditorList.Display(rails);
+				EditorGUI.indentLevel -= 1;
+				EditorGUILayout.Space();
+			}
 			GUILayout.EndVertical();
 			// Pickets
 			if (fenceType.enumValueIndex == 1)
 			{
 				GUILayout.BeginVertical(EditorStyles.helpBox);
-				EditorGUILayout.PropertyField(picketDimensions);
-				EditorGUILayout.PropertyField(picketGap);
-				EditorGUILayout.PropertyField(picketGroundOffset);
-				EditorGUILayout.Space();
+				if (IndentFoldout(ref showPickets, "Pickets"))
+				{
+					EditorGUILayout.PropertyField(picketDimensions);
+					EditorGUILayout.PropertyField(picketGap);
+					EditorGUILayout.PropertyField(picketGroundOffset);
+					EditorGUILayout.Space();
+				}
 				GUILayout.EndVertical();
 			}
-			// Rails
+			// Materials
 			GUILayout.BeginVertical(EditorStyles.helpBox);
-			EditorGUILayout.PropertyField(railThickness);
-			int indent = EditorGUI.indentLevel;
-			EditorGUI.indentLevel = 1;
-			CustomEditorList.Display(rails);
-			EditorGUILayout.Space();
+			EditorGUI.indentLevel += 1;
+			CustomEditorList.Display(materials, resizable: false);
+			EditorGUI.indentLevel -= 1;
 			GUILayout.EndVertical();
-			EditorGUI.indentLevel = indent;
 
 			// Preview
-			if (isDirty.boolValue)
+			GUILayout.BeginVertical(EditorStyles.helpBox);
+			if (IndentFoldout(ref showPreview, "Preview"))
+			{
+				GUILayout.Label(""); //Create Dummy label to get the rect from.
+				Rect previewTexRect = GUILayoutUtility.GetLastRect();
+				previewTexRect.x = (EditorGUIUtility.currentViewWidth * 0.5f) - 128;
+				previewTexRect.width = previewTexRect.height = 256;
+				GUILayout.Space(previewTexRect.height); // Reserve space for the texture to draw into
+				GUI.DrawTexture(previewTexRect, previewTex);
+			}
+			GUILayout.EndVertical();
+			// If user has edited the gui then update the texture
+			if (GUI.changed && showPreview)
 			{
 				UpdatePreviewTexture(256, 256);
-				isDirty.boolValue = false;
 			}
-			GUILayout.Label(""); //Create Dummy label to get the rect from.
-			Rect previewTexRect = GUILayoutUtility.GetLastRect();
-			previewTexRect.x = (EditorGUIUtility.currentViewWidth * 0.5f) - 128;
-			previewTexRect.width = previewTexRect.height = 256;
-			GUILayout.Space(previewTexRect.height); // Reserve space for the texture to draw into
-			GUI.DrawTexture(previewTexRect, previewTex);
 			serializedObject.ApplyModifiedProperties();
 		}
+		/// <summary>
+		/// Redraw the preview texture into previewTex
+		/// </summary>
+		/// <param name="width"></param>
+		/// <param name="height"></param>
 		private void UpdatePreviewTexture(int width, int height)
 		{
+//			Debug.Log("Updating " + debugText);
 			// get a temporary RenderTexture //
 			RenderTexture renderTexture = RenderTexture.GetTemporary(width, height);
 
@@ -182,7 +225,7 @@ namespace AshleySeric.FenceWrangler
 			float _picketCount = (_segLength - _postDim.y) / (_picketDim.y + _picketGap);
 
 			#region Posts
-			GL.Color(new Color32(126, 207, 149, 255));
+			GL.Color(new Color32(126, 207, 149, 200));
 			GL.Vertex3(0, 0, 0);
 			GL.Vertex3(0, _postDim.z, 0);
 			GL.Vertex3(_postDim.y, _postDim.z, 0);
@@ -197,22 +240,22 @@ namespace AshleySeric.FenceWrangler
 			#region Pickets
 			if (fenceType.enumValueIndex == 1)
 			{
-				GL.Color(new Color32(126, 207, 203, 255));
-				float _hPostLength = _postDim.y * 0.5f;
+				GL.Color(new Color32(126, 207, 203, 200));
 				float _picketOffsetX = _picketDim.y + _picketGap;
-				float _doublePicketLength = _picketDim.y * 2;
-				for (int i = 1; i < _picketCount; i++)
+				//float _doublePicketLength = _picketDim.y * 2;
+				for (int i = 0; i < _picketCount; i++)
 				{
-					GL.Vertex3(_postDim.y + (i * _picketOffsetX), _groundOffset, 0);
-					GL.Vertex3(_postDim.y + (i * _picketOffsetX), _groundOffset + _picketDim.z, 0);
-					GL.Vertex3(_picketDim.y + (i * _picketOffsetX), _groundOffset + _picketDim.z, 0);
-					GL.Vertex3(_picketDim.y + (i * _picketOffsetX), _groundOffset, 0);
+					float offset = i * _picketOffsetX;
+					GL.Vertex3(_postDim.y + offset, _groundOffset, 0);
+					GL.Vertex3(_postDim.y + offset, _groundOffset + _picketDim.z, 0);
+					GL.Vertex3(_postDim.y + offset + _picketDim.y, _groundOffset + _picketDim.z, 0);
+					GL.Vertex3(_postDim.y + offset + _picketDim.y, _groundOffset, 0);
 				}
 			}
 			#endregion
 
 			#region Rails
-			GL.Color(new Color32(79, 130, 128, 255));
+			GL.Color(new Color32(79, 130, 128, 200));
 			for (int i = 0; i < rails.arraySize; i++)
 			{
 				float _start = _postDim.y;
@@ -251,6 +294,13 @@ namespace AshleySeric.FenceWrangler
 
 			// return the goods //
 			previewTex = newTexture;
+		}
+		private bool IndentFoldout(ref bool foldOut, string title, int indent = 1)
+		{
+			EditorGUI.indentLevel += indent;
+			foldOut = EditorGUILayout.Foldout(foldOut, title, true);
+			EditorGUI.indentLevel -= indent;
+			return foldOut;
 		}
 	}
 }

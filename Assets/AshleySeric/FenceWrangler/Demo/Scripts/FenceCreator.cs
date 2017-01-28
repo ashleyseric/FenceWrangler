@@ -39,6 +39,12 @@ namespace AshleySeric.FenceWrangler
 		{
 			manager.AddFence(fence);
 			obj.name = "Fence";
+			// Only one section of fence so we cancel building the fence.
+			if (fence.sections.Count == 2)
+			{
+				GameObject.Destroy(this.gameObject);
+			}
+			fence.RemoveLastSection();
 			fence.BuildFence();
 			Destroy(this);
 		}
@@ -60,11 +66,11 @@ namespace AshleySeric.FenceWrangler
 				SetEndPos(mousePosition);
 				fence.BuildFence();
 			}
-			if (Input.GetMouseButtonUp(0))
+			if (Input.GetMouseButtonUp(0)) // Left click
 			{
 				AddSection();
 			}
-			else if (Input.GetMouseButtonUp(1))
+			else if (Input.GetMouseButtonUp(1)) // Right click
 			{
 				FinishFence();
 			}

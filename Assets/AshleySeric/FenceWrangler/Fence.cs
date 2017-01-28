@@ -1,6 +1,9 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+#if UNITY_EDITOR
+using System.Diagnostics;
+#endif
 
 namespace AshleySeric.FenceWrangler
 {
@@ -8,7 +11,7 @@ namespace AshleySeric.FenceWrangler
 	public class FenceSection
 	{
 		/// <summary>
-		/// Point in space for the beginning of this section of fence.
+		/// Point in world space for the beginning of this section of fence.
 		/// </summary>
 		public Vector3 cornerPoint = new Vector3(1f, 0, 0);
 		/// <summary>
@@ -37,14 +40,26 @@ namespace AshleySeric.FenceWrangler
 
 	public class Fence : MonoBehaviour
 	{
-		[HideInInspector]
-		[SerializeField]
-		private bool editor_showPreset = true;
+		#if UNITY_EDITOR
 		[HideInInspector]
 		public int selectedSectionIndex = 0;
+		public bool debugBuildTime = false;
+		#endif
 		public List<FenceSection> sections = new List<FenceSection>();
+		private Transform _trans;
 		private MeshFilter _mf;
 		private MeshRenderer _mr;
+		new public Transform transform
+		{
+			get
+			{
+				if (!_trans)
+				{
+					_trans = GetComponent<Transform>();
+				}
+				return _trans;
+			}
+		}
 		public MeshFilter meshFilter
 		{
 			get
@@ -63,13 +78,12 @@ namespace AshleySeric.FenceWrangler
 		}
 		private Mesh mesh = null;
 		private List<Vector3> verts = new List<Vector3>();
-		private List<List<int>> tris = new List<List<int>>();
+		/// <summary>
+		/// List of submesh tri lists.
+		/// </summary>
+		private List<List<int>> submeshTriangles = new List<List<int>>();
 		private List<Vector3> normals = new List<Vector3>();
 		private List<Vector2> uvs = new List<Vector2>();
-
-		private int postMeshId = 0;
-		private int railMeshId = 1;
-		private int picketMeshId = 2;
 
 		//Variables to be shown in inspector but not used in any calcs
 		[SerializeField]
@@ -88,7 +102,7 @@ namespace AshleySeric.FenceWrangler
 		[HideInInspector]
 		float totalLength = 0f;
 		public LayerMask conformMask;
-
+		
 		public void Start()
 		{
 			BuildFence();
@@ -110,10 +124,19 @@ namespace AshleySeric.FenceWrangler
 					_mr = gameObject.GetComponent<MeshRenderer>();
 			}
 		}
+		/// <summary>
+		/// Construct the fence mesh and assign it to the MeshRenderer / MeshFilter components.
+		/// This function is expensive so try not to do it very often.
+		/// </summary>
 		public void BuildFence()
 		{
 			if (sections.Count < 2)
 				return;
+
+			#if UNITY_EDITOR
+			Stopwatch stopWatch = new Stopwatch();
+			stopWatch.Start();
+			#endif
 			if (mesh == null)
 				mesh = new Mesh();
 
@@ -121,14 +144,33 @@ namespace AshleySeric.FenceWrangler
 			totalPosts = 0;
 			picketCount = 0;
 
+			List<Material> allMaterials = new List<Material>();
 			mesh.Clear();
-			tris.Clear();
+			//submeshTriangles.Clear();
+			
+			for (int i = 0; i < sections.Count; i++)
+			{
+				for (int j = 0; j < sections[i].data.materials.Count; j++)
+				{
+					Material m = sections[i].data.materials[j];
+					if (!allMaterials.Contains(m))
+					{
+						allMaterials.Add(sections[i].data.materials[j]);
+					}
+				}
+			}
+			submeshTriangles.Clear();
+			for (int i = 0; i < allMaterials.Count; i++)
+			{
+				submeshTriangles.Add(new List<int>());
+			}
+			//Debug.Log("submeshTriangles length: " + submeshTriangles.Count);
 			verts = new List<Vector3>();
 			normals = new List<Vector3>();
 			uvs = new List<Vector2>();
 			int vertexTotal = 0;
 			Quaternion sectionRot = Quaternion.identity;
-
+			Vector3 pivotPoint = transform.position;
 			//List<float> postCounts = new List<float>(); // number of posts for each section
 			//List<Vector3> postPositions = new List<Vector3>(); // positions of each post
 			//List<Vector3> postAngles = new List<Vector3>(); // angle of each post
@@ -139,7 +181,7 @@ namespace AshleySeric.FenceWrangler
 			//	FenceSection fromSec = sections[i];
 			//	FenceSection toSec = sections[i + 1];
 			//	if (fromSec.data == null) continue;
-			//	float sectionLength = Vector3.Distance(fromSec.cornerPoint, toSec.cornerPoint);
+			//	float sectionLength = Vector3.Distance(fromPos, toPos);
 			//	if (sectionLength <= Mathf.Epsilon) break;
 
 			//	postCounts.Add(sectionLength / fromSec.data.segmentLength);
@@ -147,8 +189,8 @@ namespace AshleySeric.FenceWrangler
 			//	for (int j = 0; j < postCounts[i]; j++)
 			//	{
 			//		Vector3 castPoint = Vector3.Lerp(
-			//				fromSec.cornerPoint,
-			//				toSec.cornerPoint,
+			//				fromPos,
+			//				toPos,
 			//				(float)j / postCounts[i]
 			//				);
 			//		RaycastHit hit;
@@ -181,8 +223,13 @@ namespace AshleySeric.FenceWrangler
 			{
 				FenceSection fromSec = sections[i];
 				FenceSection toSec = sections[i + 1];
+
+				// Convert to local space
+				Vector3 startPos = fromSec.cornerPoint - pivotPoint;
+				Vector3 endPos = toSec.cornerPoint - pivotPoint;
+
 				if (fromSec.data == null) continue;
-				float sectionLength = Vector3.Distance(fromSec.cornerPoint, toSec.cornerPoint);
+				float sectionLength = Vector3.Distance(startPos, endPos);
 				if (sectionLength <= Mathf.Epsilon) break;
 				float numberOfPosts = sectionLength / fromSec.data.segmentLength;
 				int numberOfPostInt = Mathf.CeilToInt(numberOfPosts);
@@ -193,6 +240,13 @@ namespace AshleySeric.FenceWrangler
 				//post lft = x
 				//post fwd = y
 				//post up  = z
+
+				int postMeshId = allMaterials.IndexOf(fromSec.data.materials[0]);
+				int railMeshId = allMaterials.IndexOf(fromSec.data.materials[1]);
+				int picketMeshId = allMaterials.IndexOf(fromSec.data.materials[2]);
+				//Debug.Log("postMeshId: " + postMeshId);
+				//Debug.Log("railMeshId: " + railMeshId);
+				//Debug.Log("picketMeshId: " + picketMeshId);
 
 				float halfPostWidth = fromSec.data.postDimensions.x * 0.5f;
 				float halfPostLength = fromSec.data.postDimensions.y * 0.5f;
@@ -209,7 +263,10 @@ namespace AshleySeric.FenceWrangler
 				{
 					case FenceData.ConformMode.none:
 						#region Don't Conform
-						Vector3 secDir = (toSec.cornerPoint - fromSec.cornerPoint).normalized;
+						// Convert back to world space
+						startPos += pivotPoint;
+						endPos += pivotPoint;
+						Vector3 secDir = (endPos - startPos).normalized;
 						Vector3 lookDir = secDir;
 						lookDir.y = 0;
 						sectionRot = Quaternion.LookRotation(lookDir, Vector3.up);	
@@ -218,8 +275,9 @@ namespace AshleySeric.FenceWrangler
 						for (int j = 0; j < numberOfPosts + 1; j++)
 						{
 							bool lastPost = j == numberOfPosts;
+							// Convert result to local space
 							Vector3 postPos = Vector3.Lerp(
-									fromSec.cornerPoint, toSec.cornerPoint,
+									startPos, endPos,
 									(float)j / numberOfPosts);
 							// Add post
 							AddCube(
@@ -237,7 +295,7 @@ namespace AshleySeric.FenceWrangler
 							if (fromSec.data.type == FenceData.FenceType.picket && !lastPost)
 							{
 								Vector3 nextPostPos = Vector3.Lerp(
-									fromSec.cornerPoint, toSec.cornerPoint,
+									startPos, endPos,
 									(float)(j + 1) / numberOfPosts);
 
 
@@ -277,8 +335,8 @@ namespace AshleySeric.FenceWrangler
 						// Add rails
 						foreach (FenceData.Rail rail in fromSec.data.rails)
 						{
-							Vector3 railStart = fromSec.cornerPoint + (rail.groundOffset * Vector3.up);
-							Vector3 railEnd = toSec.cornerPoint + (rail.groundOffset * Vector3.up);
+							Vector3 railStart = startPos + (rail.groundOffset * Vector3.up);
+							Vector3 railEnd = endPos + (rail.groundOffset * Vector3.up);
 							float railLength = Vector3.Distance(railStart, railEnd);
 							Quaternion railRot = Quaternion.LookRotation(railEnd - railStart, Vector3.up);
 							Vector3 railPos = 
@@ -305,14 +363,16 @@ namespace AshleySeric.FenceWrangler
 						Vector3[] _postAngles = new Vector3[numberOfPostInt + 2];
 						for (int j = 0; j < _postPositions.Length; j++)
 						{
+							// Get the position in world space
 							Vector3 castPoint = Vector3.Lerp(
-									fromSec.cornerPoint,
-									toSec.cornerPoint,
+									fromSec.cornerPoint + pivotPoint,
+									toSec.cornerPoint + pivotPoint,
 									(float)j / numberOfPosts
 									);
 							RaycastHit hit;
 							if (Physics.Raycast(castPoint + (Vector3.up * 1000), Vector3.down, out hit, 2000, conformMask))
 							{
+								// Convert result back to local space
 								_postPositions[j] = hit.point;
 								_postAngles[j] = hit.normal;
 							}
@@ -321,6 +381,8 @@ namespace AshleySeric.FenceWrangler
 								_postPositions[j] = castPoint;
 								_postAngles[j] = Vector3.up;
 							}
+							// Convert back to local space.
+							_postPositions[j] -= pivotPoint;
 						}
 						for (int j = 0; j < _postPositions.Length - 2; j++)
 						{
@@ -373,8 +435,53 @@ namespace AshleySeric.FenceWrangler
 
 							totalPosts++;
 
+							bool railObstructed = false;
+							// Build Rails
+							// skip the last 3 iteration as we only want to build the end post and not the rails.
+							if (j != _postPositions.Length - 2)
+							{
+								//if we conform to the ground we want the rails to be built for each fence section.
+								//if (fromSec.data.conform == FenceData.ConformMode.ground)
+								{
+									foreach (FenceData.Rail rail in fromSec.data.rails)
+									{
+										Vector3 railStart =
+											cpPos +
+											(rail.groundOffset * cpDir) +
+											(halfPostLength * (cpRot * Vector3.up)); //places the start point in the center of the current post.
+										Vector3 railEnd =
+											npPos +
+											(rail.groundOffset * npDir) +
+											(halfPostLength * (npRot * Vector3.up)); //places the end point in the center of the next post.
+
+										float railLength = Vector3.Distance(railStart, railEnd);
+										Quaternion railRot = Quaternion.LookRotation(railEnd - railStart, cpDir);
+										// Check for obstructions before building the rail
+										if (fromSec.data.allowObstructions || !Physics.Raycast(railStart + pivotPoint, railRot * Vector3.forward, railLength))
+										{
+											Vector3 railPos =
+												railStart +
+												(railRot * Vector3.forward * railLength * 0.5f) +
+												(railCenterOffset * (cpRot * Vector3.left));
+
+											AddCube(
+												railPos,
+												railRot,
+												new Vector3(fromSec.data.railThickness, rail.width, railLength),
+												ref vertexTotal,
+												railMeshId
+												);
+										}
+										else
+										{
+											railObstructed = true;
+										}
+									}
+								}
+							}
+
 							// Add pickets
-							if (fromSec.data.type == FenceData.FenceType.picket && !lastPost)
+							if (!railObstructed && fromSec.data.type == FenceData.FenceType.picket && !lastPost)
 							{
 								Vector3 picketStart = cpPos + (cpRot * (Vector3.up * fromSec.data.postDimensions.y)); //
 								Vector3 picketEnd = npPos;
@@ -402,12 +509,15 @@ namespace AshleySeric.FenceWrangler
 									Vector3 combinedOffset = vertOffset + horizOffset;
 
 									Vector3 picketStraitPos = Vector3.Lerp(picketStart + combinedOffset, picketEnd + combinedOffset, t); // Slide picket up to half way.
-									Vector3 picketConformPos = new Vector3();
+									Vector3 picketConformPos = Vector3.zero;
 									RaycastHit hit;
-									if (fromSec.data.picketConform != 0f && Physics.Raycast(picketStraitPos + (1000f * picketUp), -picketUp, out hit, 2000f, conformMask))
+									// #BUG
+									// This raycast always returns false.
+									if (fromSec.data.picketConform != Mathf.Epsilon && Physics.Raycast(picketStraitPos + (1000f * picketUp), -picketUp, out hit, 2000f))
 									{
 										// We don't want to apply the full offset since we've already translated it to connect with the rails.
-										picketConformPos = hit.point + vertOffset;
+										picketConformPos = hit.point + vertOffset - pivotPoint;
+										//Debug.Log("RaycastHit");
 									}
 									AddCube(
 										Vector3.Lerp(picketStraitPos, picketConformPos, fromSec.data.picketConform),
@@ -419,42 +529,6 @@ namespace AshleySeric.FenceWrangler
 									picketCount++;
 								}
 							}
-
-							// Build Rails
-							// skip the last 3 iteration as we only want to build the end post and not the rails.
-							if (j != _postPositions.Length - 2)
-							{
-								//if we conform to the ground we want the rails to be built for each fence section.
-								//if (fromSec.data.conform == FenceData.ConformMode.ground)
-								{
-									foreach (FenceData.Rail rail in fromSec.data.rails)
-									{
-										Vector3 railStart =
-											cpPos +
-											(rail.groundOffset * cpDir) +
-											(halfPostLength * (cpRot * Vector3.up)); //places the start point in the center of the current post.
-										Vector3 railEnd =
-											npPos +
-											(rail.groundOffset * npDir) +
-											(halfPostLength * (npRot * Vector3.up)); //places the end point in the center of the next post.
-
-										float railLength = Vector3.Distance(railStart, railEnd);
-										Quaternion railRot = Quaternion.LookRotation(railEnd - railStart, cpDir);
-										Vector3 railPos =
-											railStart +
-											(railRot * Vector3.forward * railLength * 0.5f) +
-											(railCenterOffset * (cpRot * Vector3.left));
-
-										AddCube(
-											railPos,
-											railRot,
-											new Vector3(fromSec.data.railThickness, rail.width, railLength),
-											ref vertexTotal,
-											railMeshId
-											);
-									}
-								}
-							}
 						}
 						#endregion
 						break;
@@ -462,28 +536,28 @@ namespace AshleySeric.FenceWrangler
 				totalLength += sectionLength;
 			}
 
+			// Set properties for the mesh.
 			mesh.name = "Dynamic Fence";
 			mesh.SetVertices(verts);
 			mesh.SetUVs(0, uvs);
-			mesh.subMeshCount = tris.Count;
+			mesh.subMeshCount = submeshTriangles.Count;
 			// Apply the tris for each submesh.
-			for (int i = 0; i < tris.Count; i++)
+			for (int i = 0; i < submeshTriangles.Count; i++)
 			{
-				mesh.SetTriangles( tris[i], i);
+				mesh.SetTriangles( submeshTriangles[i], i);
 			}
 			mesh.SetNormals(normals);
 			mesh.RecalculateNormals();
 			mesh.RecalculateBounds();
 			meshFilter.mesh = mesh;
-			List<Material> mats = meshRenderer.sharedMaterials.ToList();
-			if (mats.Count < mesh.subMeshCount)
-			{
-				while (mats.Count < mesh.subMeshCount -1)
-					mats.Add(mats[mats.Count - 1]);
-				meshRenderer.sharedMaterials = mats.ToArray();
-			}
+			meshRenderer.sharedMaterials = allMaterials.ToArray();
 			vertexCount = mesh.vertexCount;
 			triCount = mesh.triangles.Length / 3;
+
+			#if UNITY_EDITOR
+			if (debugBuildTime)
+				UnityEngine.Debug.Log(stopWatch.ElapsedMilliseconds);
+			#endif
 		}
 		/// <summary>
 		/// Call this before using the selection index for lookups as it may now be out of range.
@@ -679,10 +753,13 @@ namespace AshleySeric.FenceWrangler
 
 			// Add the offset for the next mesh to start from.
 			vertexTotal += 24;
+
 			verts.AddRange(_verts);
-			while (meshID >= tris.Count -1)
-				tris.Add(new List<int>());
-			tris[meshID].AddRange(_tris);
+			// Make sure we have enough submesh tri lists.
+			//while (meshID >= submeshTriangles.Count -1)
+			//	submeshTriangles.Add(new List<int>());
+			submeshTriangles[meshID].AddRange(_tris);
+
 			normals.AddRange(_normals);
 			uvs.AddRange(_uvs);
 		}
@@ -691,8 +768,16 @@ namespace AshleySeric.FenceWrangler
 			FenceData d = null;
 			if (_data) d = _data;
 			else d = sections.Count > 0 ? sections[sections.Count - 1].data : null;
-			sections.Add(new FenceSection(_pos, d));
-			BuildFence();
+			// Localize the position when adding it
+			sections.Add(new FenceSection(_pos - transform.position, d));
+		}
+		public void RemoveSection(int index)
+		{
+			sections.RemoveAt(index);
+		}
+		public void RemoveLastSection()
+		{
+			sections.RemoveAt(sections.Count - 1);
 		}
 		void OnValidate()
 		{

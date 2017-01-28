@@ -7,20 +7,20 @@ namespace AshleySeric
 	{
 
 		public static GUIContent
-			moveDownBtn = new GUIContent("\x2228", "Move Down"),
+			moveDownBtn = new GUIContent("\x21e9", "Move Down"),
 			deleteBtn = new GUIContent("-", "Delete"),
 			dupBtn = new GUIContent("+", "Duplicate"),
 			newBtn = new GUIContent("New Item", "Add a new item");
 
-		public static void Display(SerializedProperty listProp, bool showArraySize = false, bool showIndex = false)
+		public static void Display(SerializedProperty listProp, bool showArraySize = false, bool showIndex = false, bool resizable = true)
 		{
-			BaseDisplay(listProp, showArraySize, showIndex);
+			BaseDisplay(listProp, showArraySize, showIndex, resizable: resizable);
 		}
-		public static int DisplayAndGetIndex(SerializedProperty listProp, int currentIndex, bool showArraySize = false, bool showIndex = false, string selectLabel = "Sel")
+		public static int DisplayAndGetIndex(SerializedProperty listProp, int currentIndex, bool showArraySize = false, bool showIndex = false, string selectLabel = "Sel", bool resizable = true)
 		{
-			return BaseDisplay(listProp, showArraySize, showIndex, true, currentIndex, selectLabel);
+			return BaseDisplay(listProp, showArraySize, showIndex, true, currentIndex, selectLabel, resizable: resizable);
 		}
-		static int BaseDisplay(SerializedProperty listProp, bool showArraySize = false, bool showIndex = false, bool getSelection = false, int selectedIndex = -1, string selectLabel = "Sel")
+		static int BaseDisplay(SerializedProperty listProp, bool showArraySize = false, bool showIndex = false, bool getSelection = false, int selectedIndex = -1, string selectLabel = "Sel", bool resizable = true)
 		{
 			if (!listProp.isArray)
 			{
@@ -49,16 +49,16 @@ namespace AshleySeric
 
 					//Hide default label
 					EditorGUILayout.PropertyField(listProp.GetArrayElementAtIndex(i), GUIContent.none);
-
-					EditorGUILayout.BeginVertical(GUILayout.Width(60));
-					EditorGUILayout.BeginHorizontal(GUILayout.Width(60));
-					if (GUILayout.Button(moveDownBtn, EditorStyles.miniButtonLeft, GUILayout.Width(20)))
+					float width = (resizable || getSelection) ? 60 : 20;
+					EditorGUILayout.BeginVertical(GUILayout.Width(width));
+					EditorGUILayout.BeginHorizontal(GUILayout.Width(width));
+					if (GUILayout.Button(moveDownBtn, resizable ? EditorStyles.miniButtonLeft : EditorStyles.miniButton, GUILayout.Width(20)))
 						listProp.MoveArrayElement(i, i + 1);
 
-					if (GUILayout.Button(dupBtn, EditorStyles.miniButtonMid, GUILayout.Width(20)))
+					if (resizable && GUILayout.Button(dupBtn, EditorStyles.miniButtonMid, GUILayout.Width(20)))
 						listProp.InsertArrayElementAtIndex(i);
 
-					if (GUILayout.Button(deleteBtn, EditorStyles.miniButtonRight, GUILayout.Width(20)))
+					if (resizable && GUILayout.Button(deleteBtn, EditorStyles.miniButtonRight, GUILayout.Width(20)))
 					{
 						// Unity clears references instead of deleting the item sometimes, this is just a check
 						// to make sure we're actually deleting it.

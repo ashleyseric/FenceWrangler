@@ -12,15 +12,19 @@ namespace AshleySeric.FenceWrangler
 	[CreateAssetMenu(fileName = "New Fence", menuName = "Fence Data", order = 1)]
 	public class FenceData : ScriptableObject
 	{
-
+		#if UNITY_EDITOR
+		
+		#endif
 		public enum FenceType { farm = 0, picket = 1 }
 		public enum ConformMode { none = 0, ground = 1 }
 		public enum PostJoint { inset = 0, offset = 1 }
 		//public enum PicketStyle { arrow = 0, flat = 1 }
 
 		public FenceType type = 0;
-		[Header("Conform")]
+		// Conform
 		public ConformMode conformMode = 0;
+		[Tooltip("Determines if rails should be built through other objects or not.")]
+		public bool allowObstructions = false;
 		[Range(0, 1)]
 		public float lean = 1f;
 		[Range(0, 1)]
@@ -28,18 +32,18 @@ namespace AshleySeric.FenceWrangler
 		[Range(0, 1)]
 		public float picketConform = 1f;
 
-		[Header("Posts")]
+		// Posts
 		[Range(0.1f, 10f)]
 		public float segmentLength = 2f;
 		public PostJoint postJointMode = 0;
-		public Vector3 postDimensions = new Vector3(0.1f, 1f, 0.1f);
+		public Vector3 postDimensions = new Vector3(0.1f, 0.1f, 1.1f);
 
-		[Header("Pickets")]
-		public Vector3 picketDimensions = new Vector3(0.1f, 2f, 0.1f);
+		// Pickets
+		public Vector3 picketDimensions = new Vector3(0.07f, 0.01f, 1f);
 		public float picketGap = 0.1f;
 		public float picketGroundOffset = 0.1f;
 
-		[Header("Rails")]
+		// Rails
 		public float railThickness = 0.04f;
 		[System.Serializable]
 		public struct Rail
@@ -52,18 +56,12 @@ namespace AshleySeric.FenceWrangler
 				this.width = width;
 			}
 		}
+		public List<Material> materials = new List<Material>();
 		public Rail[] rails = new Rail[3]
 		{
 		new Rail(0.1f, 0.1f),
 		new Rail(0.2f, 0.1f),
 		new Rail(0.3f, 0.1f)
 		};
-
-		[SerializeField]
-		private bool _isDirty = false;
-		void OnValidate()
-		{
-			_isDirty = true;
-		}
 	}
 }

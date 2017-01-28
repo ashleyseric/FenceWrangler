@@ -7,8 +7,12 @@ namespace AshleySeric.FenceWrangler
 	[CustomEditor(typeof(Fence))]
 	public class FenceEditor : Editor
 	{
-		SerializedProperty showPreset;
+		protected static bool showPreset = true;
+		protected static bool showDebugLines = true;
 
+		private int prevSelection = -1;
+		private Editor presetEditor;
+		Vector3 lastPosition;
 		SerializedProperty vertCountProp;
 		SerializedProperty triCountProp;
 		SerializedProperty postCountProp;
@@ -22,14 +26,10 @@ namespace AshleySeric.FenceWrangler
 
 		void Awake()
 		{
+			lastPosition = (target as Fence).transform.position;
 			prevLabel = new GUIStyle(EditorStyles.centeredGreyMiniLabel);
 			prevLabel.alignment = TextAnchor.UpperLeft;
-		}
-		void OnEnable()
-		{
 			// Setup the SerializedProperties.
-			showPreset = serializedObject.FindProperty("editor_showPreset");
-
 			vertCountProp = serializedObject.FindProperty("vertexCount");
 			triCountProp = serializedObject.FindProperty("triCount");
 			postCountProp = serializedObject.FindProperty("totalPosts");
@@ -39,6 +39,13 @@ namespace AshleySeric.FenceWrangler
 		private void OnSceneGUI()
 		{
 			Fence fence = target as Fence;
+			Vector3 pivotPosition = fence.transform.position;
+			if (lastPosition != pivotPosition)
+			{
+				//Debug.Log(lastPosition);
+				fence.BuildFence();
+				lastPosition = pivotPosition;
+			}
 			fence.ClampSelectionIndex();
 			if (fence.sections.Count == 0 || fence.sections[fence.selectedSectionIndex] == null) return;
 			Transform fenceTransform = fence.transform;
@@ -49,12 +56,14 @@ namespace AshleySeric.FenceWrangler
 			{
 				Handles.color = fence.sections[i].data == null ? Color.red : Color.white;
 				EditorGUI.BeginChangeCheck();
-				fence.sections[i].cornerPoint = Handles.PositionHandle(fence.sections[i].cornerPoint, handleRotation);
+				// Convert to world space
+				Vector3 _handlePos = fence.sections[i].cornerPoint + pivotPosition;
+				fence.sections[i].cornerPoint = Handles.PositionHandle(_handlePos, handleRotation) - pivotPosition;
 				if (EditorGUI.EndChangeCheck())
 					fence.BuildFence();
-				if (i < fence.sections.Count - 1)
-					Handles.DrawLine(fence.sections[i].cornerPoint, fence.sections[i+1].cornerPoint);
-				Handles.Label(fence.sections[i].cornerPoint, i.ToString(), EditorStyles.boldLabel);
+				if (showDebugLines && i < fence.sections.Count - 1)
+					Handles.DrawLine(_handlePos, fence.sections[i+1].cornerPoint + pivotPosition);
+				Handles.Label(_handlePos, i.ToString(), EditorStyles.boldLabel);
 			}
 
 			#region Inputs
@@ -71,6 +80,7 @@ namespace AshleySeric.FenceWrangler
 							{
 								Undo.RegisterCompleteObjectUndo(fence, "Added Section");
 								fence.AddSection(hit.point);
+								fence.BuildFence();
 							}
 						}
 						break;
@@ -83,26 +93,45 @@ namespace AshleySeric.FenceWrangler
 			serializedObject.Update();
 			Fence fence = target as Fence;
 			fence.ClampSelectionIndex();
-			if (GUILayout.Button("Update Fence"))
-				fence.BuildFence();
 
+			GUILayout.BeginHorizontal();
+			GUILayout.FlexibleSpace();
+			if (GUILayout.Button("Update Fence", GUILayout.ExpandWidth(false), GUILayout.Width(100), GUILayout.Height(27)))
+				fence.BuildFence();
+			GUILayout.FlexibleSpace();
+			GUILayout.EndHorizontal();
+			EditorGUILayout.Space();
+			showDebugLines = GUILayout.Toggle(showDebugLines, "Show Debug Lines", EditorStyles.toggle);
 			//hide the sections list so we can manually draw it.
+			DrawPropertiesExcluding(serializedObject, "sections", "m_Script");
+
+			// Draw custom sections list
+			EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+			EditorGUI.indentLevel += 1;
+			fence.selectedSectionIndex = CustomEditorList.DisplayAndGetIndex(serializedObject.FindProperty("sections"), fence.selectedSectionIndex, false, true, "Edit");
+			EditorGUI.indentLevel -= 1;
+			if (fence.selectedSectionIndex != prevSelection)
+			{
+				presetEditor = Editor.CreateEditor(fence.sections[fence.selectedSectionIndex].data);
+				prevSelection = fence.selectedSectionIndex;
+			}
+			EditorGUILayout.EndVertical();
+
+			// draw Fence Preset editor within this editor
 			if (fence.sections.Count > 0)
 			{
 				if (fence.sections[fence.selectedSectionIndex].data)
 				{
-					Editor dataEditor = Editor.CreateEditor(fence.sections[fence.selectedSectionIndex].data);
+					
 					GUILayout.BeginVertical(EditorStyles.helpBox);
-					GUILayout.BeginHorizontal();
-					EditorGUILayout.LabelField(fence.sections[fence.selectedSectionIndex].data.name + " (Preset)", EditorStyles.boldLabel);
-					if (GUILayout.Button(showPreset.boolValue ? "Hide" : "Show", EditorStyles.miniButton, GUILayout.Width(50f)))
-						showPreset.boolValue = !showPreset.boolValue;
-					GUILayout.EndHorizontal();
-					if (showPreset.boolValue)
+					EditorGUI.indentLevel += 1;
+					showPreset = EditorGUILayout.Foldout(showPreset, fence.sections[fence.selectedSectionIndex].data.name + " (Preset)", true);
+					EditorGUI.indentLevel -= 1;
+					if (showPreset)
 					{
 						EditorGUILayout.Space();
 						EditorGUI.BeginChangeCheck();
-						dataEditor.OnInspectorGUI();
+						presetEditor.OnInspectorGUI();
 						//Give us live updates when changing presets in the instpector.
 						if (EditorGUI.EndChangeCheck())
 						{
@@ -117,13 +146,6 @@ namespace AshleySeric.FenceWrangler
 				}
 			}
 
-			DrawPropertiesExcluding(serializedObject, "sections", "m_Script");
-			EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-			int indent = EditorGUI.indentLevel;
-			EditorGUI.indentLevel = 1;
-			fence.selectedSectionIndex = CustomEditorList.DisplayAndGetIndex(serializedObject.FindProperty("sections"), fence.selectedSectionIndex, false, true, "Edit");
-			EditorGUI.indentLevel = indent;
-			EditorGUILayout.EndVertical();
 			serializedObject.ApplyModifiedProperties();
 		}
 		//private void ValidateData()
