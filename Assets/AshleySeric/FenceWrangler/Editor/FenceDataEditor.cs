@@ -148,7 +148,7 @@ namespace AshleySeric.FenceWrangler
 			// Materials
 			GUILayout.BeginVertical(EditorStyles.helpBox);
 			EditorGUI.indentLevel += 1;
-			CustomEditorList.Display(materials, resizable: false);
+			CustomEditorList.Display(materials, resizable: true);
 			EditorGUI.indentLevel -= 1;
 			GUILayout.EndVertical();
 

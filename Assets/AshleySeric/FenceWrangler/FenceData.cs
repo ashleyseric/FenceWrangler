@@ -9,7 +9,7 @@ namespace AshleySeric.FenceWrangler
 	/// This should contain data that is relevent to the fence's construction only
 	/// and not the fence's behaviour, behaviour is handled by the Fence class itself.
 	/// </summary>
-	[CreateAssetMenu(fileName = "New Fence", menuName = "Fence Data", order = 1)]
+	[CreateAssetMenu(fileName = "New Fence", menuName = "Fence Preset", order = 1)]
 	public class FenceData : ScriptableObject
 	{
 		#if UNITY_EDITOR
@@ -48,20 +48,23 @@ namespace AshleySeric.FenceWrangler
 		[System.Serializable]
 		public struct Rail
 		{
+			public bool obstructionPreventsPickets;
 			public float groundOffset;
 			public float width;
-			public Rail(float groundOffset, float width)
+			public Rail(float groundOffset = 0.5f, float width = 0.07f, bool obstructionPreventsPickets = false)
 			{
+				this.obstructionPreventsPickets = obstructionPreventsPickets;
 				this.groundOffset = groundOffset;
 				this.width = width;
 			}
 		}
-		public List<Material> materials = new List<Material>();
+		public List<Material> materials = new List<Material>(3);
+
 		public Rail[] rails = new Rail[3]
 		{
-		new Rail(0.1f, 0.1f),
 		new Rail(0.2f, 0.1f),
-		new Rail(0.3f, 0.1f)
+		new Rail(0.5f, 0.1f),
+		new Rail(0.8f, 0.1f)
 		};
 	}
 }

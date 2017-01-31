@@ -28,7 +28,7 @@ namespace AshleySeric
 				return 0;
 			}
 			EditorGUILayout.PropertyField(listProp);
-			EditorGUI.indentLevel += 1;
+			EditorGUI.indentLevel -= 1;
 			int sel = selectedIndex;
 			if (listProp.isExpanded)
 			{
@@ -45,7 +45,7 @@ namespace AshleySeric
 
 					//Show our own index label
 					if (showIndex)
-						EditorGUILayout.LabelField(i.ToString(), GUILayout.Width(40));
+						EditorGUILayout.LabelField(new GUIContent(i.ToString(), "Element Index"), EditorStyles.boldLabel, GUILayout.Width(20));
 
 					//Hide default label
 					EditorGUILayout.PropertyField(listProp.GetArrayElementAtIndex(i), GUIContent.none);
@@ -76,13 +76,21 @@ namespace AshleySeric
 					}
 					EditorGUILayout.EndVertical();
 					EditorGUILayout.EndHorizontal();
+					// The following code works but throws the following error:
+					// ArgumentException: Getting control 1's position in a group with only 1 controls when doing MouseUp //
+					//Event e = Event.current;
+					//if (e.type == EventType.mouseUp && e.button == 0)
+					//{
+					//	if (GUILayoutUtility.GetLastRect().Contains(e.mousePosition))
+					//		sel = i;
+					//}
 				}
 				if (listProp.arraySize == 0 && GUILayout.Button(newBtn, EditorStyles.miniButton))
 				{
 					listProp.arraySize += 1;
 				}
 			}
-			EditorGUI.indentLevel -= 1;
+			EditorGUI.indentLevel += 1;
 			return sel;
 		}
 	}
