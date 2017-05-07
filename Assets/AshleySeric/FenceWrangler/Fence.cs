@@ -10,11 +10,11 @@ namespace AshleySeric.FenceWrangler
 	public class Fence : MonoBehaviour
 	{
 		#if UNITY_EDITOR
-		[HideInInspector]
-		public int selectedSectionIndex = 0;
-		public bool debugBuildTime = false;
-		#endif
-		public List<FenceSection> sections = new List<FenceSection>();
+		[SerializeField][HideInInspector] private int selectedSectionIndex = 0;
+		[SerializeField][HideInInspector] private float buildTime = -1f;
+        #endif
+
+        public List<FenceSection> sections = new List<FenceSection>();
 		private Transform _trans;
 		private MeshFilter _mf;
 		private MeshRenderer _mr;
@@ -71,8 +71,8 @@ namespace AshleySeric.FenceWrangler
 		[HideInInspector]
 		float totalLength = 0f;
 		public LayerMask conformMask;
-		
-		public void Start()
+
+        public void Start()
 		{
 			BuildFence();
 		}
@@ -102,9 +102,9 @@ namespace AshleySeric.FenceWrangler
 			if (sections.Count < 2)
 				return;
 
-			#if UNITY_EDITOR
-			Stopwatch stopWatch = new Stopwatch();
-			stopWatch.Start();
+            #if UNITY_EDITOR
+            Stopwatch stopWatch = new Stopwatch();
+            stopWatch.Start();
 			#endif
 			if (mesh == null)
 				mesh = new Mesh();
@@ -117,6 +117,7 @@ namespace AshleySeric.FenceWrangler
 			mesh.Clear();
 			//submeshTriangles.Clear();
 			
+            // Generate a unique list of materials. This way fence sections can share materails without double ups.
 			for (int i = 0; i < sections.Count; i++)
 			{
 				for (int j = 0; j < sections[i].data.materials.Count; j++)
@@ -523,9 +524,8 @@ namespace AshleySeric.FenceWrangler
 			vertexCount = mesh.vertexCount;
 			triCount = mesh.triangles.Length / 3;
 
-			#if UNITY_EDITOR
-			if (debugBuildTime)
-				UnityEngine.Debug.Log(stopWatch.ElapsedMilliseconds);
+            #if UNITY_EDITOR
+            buildTime = (float)stopWatch.ElapsedMilliseconds;
 			#endif
 		}
 		/// <summary>

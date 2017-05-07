@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using UnityEditor;
+using UnityEditorInternal;
 
 namespace AshleySeric.FenceWrangler
 {
@@ -11,8 +12,9 @@ namespace AshleySeric.FenceWrangler
 		protected static bool showPickets = false;
 		protected static bool showConform = false;
 		protected static bool showRails = false;
+        protected static bool showMaterials = false;
 
-		private SerializedProperty fenceType;
+        private SerializedProperty fenceType;
 		// Conform Mode
 		private SerializedProperty conformMode;
 		private SerializedProperty allowObstructions;
@@ -33,7 +35,16 @@ namespace AshleySeric.FenceWrangler
 
 		// Materials
 		private SerializedProperty materials;
-	
+
+        /// <summary>
+        /// How many materials does the corresponding FenceType require.
+        /// </summary>
+        private readonly int[] fenceTypeMaterialCount =
+        {
+            2,// Farm
+            3 // Picket
+        };
+
 		private Material _lineMaterial;
 		private Material lineMaterial
 		{
@@ -58,35 +69,69 @@ namespace AshleySeric.FenceWrangler
 			}
 		}
 		private Texture2D previewTex;
+        ReorderableList materialList;
+        ReorderableList railList;
 
-		public void Awake()
-		{
-			fenceType = serializedObject.FindProperty("type");
-			// Conform Mode
-			conformMode = serializedObject.FindProperty("conformMode");
-			allowObstructions = serializedObject.FindProperty("allowObstructions");
-			lean = serializedObject.FindProperty("lean");
-			tilt = serializedObject.FindProperty("tilt");
-			picketConform = serializedObject.FindProperty("picketConform");
-			// Posts
-			segmentLength = serializedObject.FindProperty("segmentLength");
-			postDimensions = serializedObject.FindProperty("postDimensions");
-			postJointMode = serializedObject.FindProperty("postJointMode");
-			// Pickets
-			picketDimensions = serializedObject.FindProperty("picketDimensions");
-			picketGap = serializedObject.FindProperty("picketGap");
-			picketGroundOffset = serializedObject.FindProperty("picketGroundOffset");
-			// Rails
-			railThickness = serializedObject.FindProperty("railThickness");
-			rails = serializedObject.FindProperty("rails");
+        private void OnEnable()
+        {
+            fenceType = serializedObject.FindProperty("type");
+            // Conform Mode
+            conformMode = serializedObject.FindProperty("conformMode");
+            allowObstructions = serializedObject.FindProperty("allowObstructions");
+            lean = serializedObject.FindProperty("lean");
+            tilt = serializedObject.FindProperty("tilt");
+            picketConform = serializedObject.FindProperty("picketConform");
+            // Posts
+            segmentLength = serializedObject.FindProperty("segmentLength");
+            postDimensions = serializedObject.FindProperty("postDimensions");
+            postJointMode = serializedObject.FindProperty("postJointMode");
+            // Pickets
+            picketDimensions = serializedObject.FindProperty("picketDimensions");
+            picketGap = serializedObject.FindProperty("picketGap");
+            picketGroundOffset = serializedObject.FindProperty("picketGroundOffset");
+            // Rails
+            railThickness = serializedObject.FindProperty("railThickness");
+            rails = serializedObject.FindProperty("rails");
 
-			// Materials
-			materials = serializedObject.FindProperty("materials");
+            // Materials
+            materials = serializedObject.FindProperty("materials");
 
-			// Initialize the preview
-			UpdatePreviewTexture(256, 256);
-		}
-		public override void OnInspectorGUI()
+            // Initialize the preview
+            UpdatePreviewTexture(256, 256);
+
+            // Show Material List.
+            materialList = new ReorderableList(serializedObject, materials, true, false, true, true);
+            materialList.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
+            {
+                var element = materialList.serializedProperty.GetArrayElementAtIndex(index);
+                rect.y += 2;
+                // Material Property
+                EditorGUI.PropertyField(new Rect(rect.x, rect.y, rect.width, EditorGUIUtility.singleLineHeight),element, GUIContent.none);
+            };
+            materialList.onCanRemoveCallback = delegate
+            {
+                // Check if we will have enough materials for this fence type.
+                return materialList.count > fenceTypeMaterialCount[(int)fenceType.enumValueIndex];
+            };
+            // Show rail list.
+            railList = new ReorderableList(serializedObject, rails, true, false, true, true);
+            railList.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
+            {
+                float labWidth = EditorGUIUtility.labelWidth;
+                EditorGUIUtility.labelWidth = 80;
+                var element = railList.serializedProperty.GetArrayElementAtIndex(index);
+                EditorGUI.PropertyField(
+                    new Rect(rect.x, rect.y, rect.width * 0.5f, EditorGUIUtility.singleLineHeight),
+                    element.FindPropertyRelative("groundOffset"), 
+                    new GUIContent("Height", "Height scale modifier for this section of fence"));
+                EditorGUI.PropertyField(
+                    new Rect(rect.x + (rect.width * 0.5f), rect.y, rect.width * 0.5f, EditorGUIUtility.singleLineHeight),
+                    element.FindPropertyRelative("width"),
+                    new GUIContent("Size", "Dimensions for this rail."));
+                EditorGUIUtility.labelWidth = labWidth;
+            };
+        }
+        public override void OnInspectorGUI()
 		{
 			serializedObject.Update();
 			FenceData fenceData = target as FenceData;
@@ -127,7 +172,7 @@ namespace AshleySeric.FenceWrangler
 			{
 				EditorGUILayout.PropertyField(railThickness);
 				EditorGUI.indentLevel += 1;
-				CustomEditorList.Display(rails);
+                railList.DoLayoutList();
 				EditorGUI.indentLevel -= 1;
 				EditorGUILayout.Space();
 			}
@@ -145,15 +190,17 @@ namespace AshleySeric.FenceWrangler
 				}
 				GUILayout.EndVertical();
 			}
-			// Materials
-			GUILayout.BeginVertical(EditorStyles.helpBox);
-			EditorGUI.indentLevel += 1;
-			CustomEditorList.Display(materials, resizable: true);
-			EditorGUI.indentLevel -= 1;
-			GUILayout.EndVertical();
-
-			// Preview
-			GUILayout.BeginVertical(EditorStyles.helpBox);
+            // Materials
+            GUILayout.BeginVertical(EditorStyles.helpBox);
+            if (IndentFoldout(ref showMaterials, "Materials"))
+            {
+                EditorGUI.indentLevel += 1;
+                materialList.DoLayoutList();
+                EditorGUI.indentLevel -= 1;
+            }
+            GUILayout.EndVertical();
+            // Preview
+            GUILayout.BeginVertical(EditorStyles.helpBox);
 			if (IndentFoldout(ref showPreview, "Preview"))
 			{
 				GUILayout.Label(""); //Create Dummy label to get the rect from.

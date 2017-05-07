@@ -18,7 +18,7 @@ namespace AshleySeric.FenceWrangler
 		public enum FenceType { farm = 0, picket = 1 }
 		public enum ConformMode { none = 0, ground = 1 }
 		public enum PostJoint { inset = 0, offset = 1 }
-		//public enum PicketStyle { arrow = 0, flat = 1 }
+        //public enum PicketStyle { arrow = 0, flat = 1 }
 
 		public FenceType type = 0;
 		// Conform

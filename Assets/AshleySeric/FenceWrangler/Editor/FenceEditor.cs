@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using UnityEngine;
 using UnityEditor;
+using UnityEditorInternal;
 
 namespace AshleySeric.FenceWrangler
 {
@@ -9,8 +10,9 @@ namespace AshleySeric.FenceWrangler
 	{
 		protected static bool showPreset = true;
 		protected static bool showDebugLines = true;
+        protected static bool showSections = true;
 
-		private int prevSelection = -1;
+        private int prevSelection = -1;
 		private Editor presetEditor;
 		Vector3 lastPosition;
 		SerializedProperty vertCountProp;
@@ -18,13 +20,17 @@ namespace AshleySeric.FenceWrangler
 		SerializedProperty postCountProp;
 		SerializedProperty picketCountProp;
 		SerializedProperty totalLengthProp;
+        SerializedProperty sectionsProp;
+        SerializedProperty selectionIndexProp;
+        SerializedProperty buildTimeProp;
+        ReorderableList sectionList;
 		GUIStyle prevLabel;
 
 		//private PreviewRenderUtility _previewRenderUtility;
 		//private MeshFilter _targetMeshFilter;
 		//private MeshRenderer _targetMeshRenderer;
 
-		void Awake()
+		void OnEnable()
 		{
 			lastPosition = (target as Fence).transform.position;
 			prevLabel = new GUIStyle(EditorStyles.centeredGreyMiniLabel);
@@ -35,6 +41,24 @@ namespace AshleySeric.FenceWrangler
 			postCountProp = serializedObject.FindProperty("totalPosts");
 			picketCountProp = serializedObject.FindProperty("picketCount");
 			totalLengthProp = serializedObject.FindProperty("totalLength");
+            sectionsProp = serializedObject.FindProperty("sections");
+            selectionIndexProp = serializedObject.FindProperty("selectedSectionIndex");
+            buildTimeProp = serializedObject.FindProperty("buildTime");
+
+            // Generate Sections Reorderable List.
+            sectionList = new ReorderableList(serializedObject, sectionsProp, true, false, true, true);
+            sectionList.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
+            {
+                var element = sectionList.serializedProperty.GetArrayElementAtIndex(index);
+                rect.y += 2;
+                EditorGUI.PropertyField(
+                new Rect(rect.x, rect.y, rect.width, EditorGUIUtility.singleLineHeight * 2),
+                element, GUIContent.none);
+            };
+            sectionList.onSelectCallback = delegate (ReorderableList l){
+                selectionIndexProp.intValue = l.index;
+            };
+            sectionList.elementHeightCallback = delegate { return EditorGUIUtility.singleLineHeight * 2 + 10; };
 		}
 		private void OnSceneGUI()
 		{
@@ -47,7 +71,7 @@ namespace AshleySeric.FenceWrangler
 				lastPosition = pivotPosition;
 			}
 			fence.ClampSelectionIndex();
-			if (fence.sections.Count == 0 || fence.sections[fence.selectedSectionIndex] == null) return;
+			if (fence.sections.Count == 0 || fence.sections[selectionIndexProp.intValue] == null) return;
 			Transform fenceTransform = fence.transform;
 
 			Quaternion handleRotation = Tools.pivotRotation == PivotRotation.Local ? fenceTransform.rotation : Quaternion.identity;
@@ -107,25 +131,27 @@ namespace AshleySeric.FenceWrangler
 
 			// Draw custom sections list
 			EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-			EditorGUI.indentLevel += 1;
-			fence.selectedSectionIndex = CustomEditorList.DisplayAndGetIndex(serializedObject.FindProperty("sections"), fence.selectedSectionIndex, false, true, "Edit");
+            EditorGUI.indentLevel += 1;
+            showSections = EditorGUILayout.Foldout(showSections, "Sections", true);
+            if (showSections)
+                sectionList.DoLayoutList();
 			EditorGUI.indentLevel -= 1;
-			if (fence.selectedSectionIndex != prevSelection)
+			if (selectionIndexProp.intValue != prevSelection)
 			{
-				presetEditor = Editor.CreateEditor(fence.sections[fence.selectedSectionIndex].data);
-				prevSelection = fence.selectedSectionIndex;
+				presetEditor = Editor.CreateEditor(fence.sections[selectionIndexProp.intValue].data);
+				prevSelection = selectionIndexProp.intValue;
 			}
 			EditorGUILayout.EndVertical();
 
 			// draw Fence Preset editor within this editor
 			if (fence.sections.Count > 0)
 			{
-				if (fence.sections[fence.selectedSectionIndex].data)
+				if (fence.sections[selectionIndexProp.intValue].data)
 				{
 					
 					GUILayout.BeginVertical(EditorStyles.helpBox);
 					EditorGUI.indentLevel += 1;
-					showPreset = EditorGUILayout.Foldout(showPreset, fence.sections[fence.selectedSectionIndex].data.name + " (Preset)", true);
+					showPreset = EditorGUILayout.Foldout(showPreset, fence.sections[selectionIndexProp.intValue].data.name + " (Preset)", true);
 					EditorGUI.indentLevel -= 1;
 					if (showPreset)
 					{
@@ -183,18 +209,19 @@ namespace AshleySeric.FenceWrangler
 				GUI.Label(new Rect(r.x + cellWidth, r.y + (labelHeight * 3), cellWidth, labelHeight), vertCountProp.intValue.ToString(), prevLabel);
 				GUI.Label(new Rect(r.x, r.y + (labelHeight*4), cellWidth, labelHeight), "Triangles:", prevLabel);
 				GUI.Label(new Rect(r.x + cellWidth, r.y + (labelHeight * 4), cellWidth, labelHeight), triCountProp.intValue.ToString(), prevLabel);
-
-				// Initialize the preview
-				//_previewRenderUtility.BeginPreview(r, background);
-				// Add mesh to preview
-				//_previewRenderUtility.DrawMesh(_targetMeshFilter.sharedMesh, Matrix4x4.identity, _targetMeshRenderer.sharedMaterial, 0);
-				// Render the preview
-				//_previewRenderUtility.m_Camera.Render();
-				// Store the render result.
-				//Texture resultRender = _previewRenderUtility.EndPreview();
-				// Draw resulting texture into the preview area.
-				//GUI.DrawTexture(r, resultRender, ScaleMode.StretchToFill, false);
-			}
+                GUI.Label(new Rect(r.x, r.y + (labelHeight * 5), cellWidth, labelHeight), "Build Time: ", prevLabel);
+                GUI.Label(new Rect(r.x + cellWidth, r.y + (labelHeight * 5), cellWidth, labelHeight), buildTimeProp.floatValue.ToString() + "ms", prevLabel);
+                // Initialize the preview
+                //_previewRenderUtility.BeginPreview(r, background);
+                // Add mesh to preview
+                //_previewRenderUtility.DrawMesh(_targetMeshFilter.sharedMesh, Matrix4x4.identity, _targetMeshRenderer.sharedMaterial, 0);
+                // Render the preview
+                //_previewRenderUtility.m_Camera.Render();
+                // Store the render result.
+                //Texture resultRender = _previewRenderUtility.EndPreview();
+                // Draw resulting texture into the preview area.
+                //GUI.DrawTexture(r, resultRender, ScaleMode.StretchToFill, false);
+            }
 		}
 	}
 }
