@@ -1,18 +1,25 @@
 ﻿using UnityEngine;
 using UnityEditor;
 using UnityEditorInternal;
+using AshleySeric.Styles;
 
 namespace AshleySeric.FenceWrangler
 {
 	[CustomEditor(typeof(FenceData))]
 	public class FenceDataEditor : Editor
 	{
-		protected static bool showPreview = true;
+        #region Static Variables
+
+        protected static bool showPreview = false;
 		protected static bool showPosts = false;
 		protected static bool showPickets = false;
 		protected static bool showConform = false;
 		protected static bool showRails = false;
         protected static bool showMaterials = false;
+
+        #endregion
+
+        #region Private Variables
 
         private SerializedProperty fenceType;
 		// Conform Mode
@@ -45,7 +52,7 @@ namespace AshleySeric.FenceWrangler
             3 // Picket
         };
 
-		private Material _lineMaterial;
+        private Material _lineMaterial;
 		private Material lineMaterial
 		{
 			get
@@ -69,8 +76,12 @@ namespace AshleySeric.FenceWrangler
 			}
 		}
 		private Texture2D previewTex;
-        ReorderableList materialList;
-        ReorderableList railList;
+        private ReorderableList materialList;
+        private ReorderableList railList;
+
+        #endregion
+
+        #region Unity Methods
 
         private void OnEnable()
         {
@@ -131,101 +142,143 @@ namespace AshleySeric.FenceWrangler
                 EditorGUIUtility.labelWidth = labWidth;
             };
         }
+
         public override void OnInspectorGUI()
 		{
 			serializedObject.Update();
 			FenceData fenceData = target as FenceData;
-			//DrawPropertiesExcluding(serializedObject, "rails", "m_Script");
 
-			EditorGUILayout.PropertyField(fenceType);
-			EditorGUILayout.Space();
+            // Cache the styles we'll use multiple times times
+            GUIStyle foldoutBG = StyleManager.FoldoutBg;
+            GUIStyle foldoutBGCollapsed = StyleManager.FoldoutBgCollapsed;
+            
+            // Main background panel
+            EditorGUILayout.BeginVertical(StyleManager.FoldoutSetBg);
+            
+            // Heading
+            GUILayout.Label(fenceData.name, StyleManager.FoldoutSetHeading);
 
-			// Conform
-			GUILayout.BeginVertical(EditorStyles.helpBox);
-			if (IndentFoldout(ref showConform, "Conform"))
-			{
-				EditorGUILayout.PropertyField(conformMode);
-				if (conformMode.enumValueIndex == 1)
-				{
-					EditorGUILayout.PropertyField(allowObstructions);
-					EditorGUILayout.PropertyField(lean);
-					EditorGUILayout.PropertyField(tilt);
-					if (fenceType.enumValueIndex == 1) //picket
-						EditorGUILayout.PropertyField(picketConform);
-				}
-				EditorGUILayout.Space();
-			}
-			GUILayout.EndVertical();
-			// Posts
-			GUILayout.BeginVertical(EditorStyles.helpBox);
-			if (IndentFoldout(ref showPosts, "Posts"))
-			{
-				EditorGUILayout.PropertyField(segmentLength);
-				EditorGUILayout.PropertyField(postDimensions);
-				EditorGUILayout.PropertyField(postJointMode);
-				EditorGUILayout.Space();
-			}
-			GUILayout.EndVertical();
-			// Rails
-			GUILayout.BeginVertical(EditorStyles.helpBox);
-			if (IndentFoldout(ref showRails, "Rails"))
-			{
-				EditorGUILayout.PropertyField(railThickness);
-				EditorGUI.indentLevel += 1;
-                railList.DoLayoutList();
-				EditorGUI.indentLevel -= 1;
-				EditorGUILayout.Space();
-			}
-			GUILayout.EndVertical();
+            // Preview thumbnail
+            Rect prevR = GUILayoutUtility.GetLastRect();
+            prevR.x += 6;
+            prevR.y += 4;
+            prevR.height = 17;
+            prevR.width = 17;
+            GUI.DrawTexture(prevR, previewTex);
+
+            // Type enum
+            EditorGUILayout.PropertyField(fenceType);
+
+            // Conform
+            bool conforming = conformMode.intValue != 0;
+            Rect toggleConformRect = new Rect();
+            using (new GUILayout.VerticalScope(showConform ? foldoutBG : foldoutBGCollapsed))
+            {
+                if (Foldout(ref showConform, "Conform"))
+                {
+                    toggleConformRect = GUILayoutUtility.GetLastRect();
+                    //GUI.enabled = conforming;
+                    EditorGUILayout.PropertyField(conformMode);
+                    if (conformMode.enumValueIndex == 1)
+                    {
+                        EditorGUILayout.PropertyField(allowObstructions);
+                        EditorGUILayout.PropertyField(lean);
+                        EditorGUILayout.PropertyField(tilt);
+                        if (fenceType.enumValueIndex == 1) //picket
+                            EditorGUILayout.PropertyField(picketConform);
+                    }
+                    GUI.enabled = true;
+                    EditorGUILayout.Space();
+                }
+                else
+                    toggleConformRect = GUILayoutUtility.GetLastRect();
+            }
+            using (var check = new EditorGUI.ChangeCheckScope())
+            {
+                toggleConformRect.x += 2;
+                toggleConformRect.y += 1;
+                bool con = EditorGUI.Toggle(toggleConformRect, conforming, StyleManager.toggle);
+                if (check.changed)
+                {
+                    Debug.Log("Changed");
+                    conformMode.intValue = con ? 1 : 0;
+                }
+            }
+            // Posts
+            using (new GUILayout.VerticalScope(showPosts ? foldoutBG : foldoutBGCollapsed))
+            {
+                if (Foldout(ref showPosts, "Posts"))
+                {
+                    EditorGUILayout.PropertyField(segmentLength);
+                    EditorGUILayout.PropertyField(postDimensions);
+                    EditorGUILayout.PropertyField(postJointMode);
+                    EditorGUILayout.Space();
+                }
+            }
+            // Rails
+            using (new GUILayout.VerticalScope(showRails ? foldoutBG : foldoutBGCollapsed))
+            {
+                if (Foldout(ref showRails, "Rails"))
+                {
+                    EditorGUILayout.PropertyField(railThickness);
+                    EditorGUI.indentLevel += 1;
+                    railList.DoLayoutList();
+                    EditorGUI.indentLevel -= 1;
+                    EditorGUILayout.Space();
+                }
+            }
 			// Pickets
 			if (fenceType.enumValueIndex == 1)
 			{
-				GUILayout.BeginVertical(EditorStyles.helpBox);
-				if (IndentFoldout(ref showPickets, "Pickets"))
-				{
-					EditorGUILayout.PropertyField(picketDimensions);
-					EditorGUILayout.PropertyField(picketGap);
-					EditorGUILayout.PropertyField(picketGroundOffset);
-					EditorGUILayout.Space();
-				}
-				GUILayout.EndVertical();
+                using (new GUILayout.VerticalScope(showPickets ? foldoutBG : foldoutBGCollapsed))
+                {
+                    if (Foldout(ref showPickets, "Pickets"))
+                    {
+                        EditorGUILayout.PropertyField(picketDimensions);
+                        EditorGUILayout.PropertyField(picketGap);
+                        EditorGUILayout.PropertyField(picketGroundOffset);
+                        EditorGUILayout.Space();
+                    }
+                }
 			}
             // Materials
-            GUILayout.BeginVertical(EditorStyles.helpBox);
-            if (IndentFoldout(ref showMaterials, "Materials"))
+            using (new GUILayout.VerticalScope(showMaterials ? foldoutBG : foldoutBGCollapsed))
             {
-                EditorGUI.indentLevel += 1;
-                materialList.DoLayoutList();
-                EditorGUI.indentLevel -= 1;
+                if (Foldout(ref showMaterials, "Materials"))
+                {
+                    //EditorGUI.indentLevel += 1;
+                    materialList.DoLayoutList();
+                    //EditorGUI.indentLevel -= 1;
+                }
             }
-            GUILayout.EndVertical();
             // Preview
-            GUILayout.BeginVertical(EditorStyles.helpBox);
-			if (IndentFoldout(ref showPreview, "Preview"))
-			{
-				GUILayout.Label(""); //Create Dummy label to get the rect from.
-				Rect previewTexRect = GUILayoutUtility.GetLastRect();
-				previewTexRect.x = (EditorGUIUtility.currentViewWidth * 0.5f) - 128;
-				previewTexRect.width = previewTexRect.height = 256;
-				GUILayout.Space(previewTexRect.height); // Reserve space for the texture to draw into
-				GUI.DrawTexture(previewTexRect, previewTex);
-			}
-			GUILayout.EndVertical();
+            using (new GUILayout.VerticalScope(showPreview ? foldoutBG : foldoutBGCollapsed))
+            {
+                if (Foldout(ref showPreview, "Preview"))
+                {
+                    GUILayout.Label(""); //Create Dummy label to get the rect from.
+                    Rect previewTexRect = GUILayoutUtility.GetLastRect();
+                    previewTexRect.x = (EditorGUIUtility.currentViewWidth * 0.5f) - 128;
+                    previewTexRect.width = previewTexRect.height = 256;
+                    GUILayout.Space(previewTexRect.height); // Reserve space for the texture to draw into
+                    GUI.DrawTexture(previewTexRect, previewTex);
+                }
+            }
 			// If user has edited the gui then update the texture
-			if (GUI.changed && showPreview)
+			if (GUI.changed)
 			{
 				UpdatePreviewTexture(256, 256);
 			}
 			serializedObject.ApplyModifiedProperties();
 		}
-		/// <summary>
+		
+        /// <summary>
 		/// Redraw the preview texture into previewTex
 		/// </summary>
 		/// <param name="width"></param>
 		/// <param name="height"></param>
 		private void UpdatePreviewTexture(int width, int height)
 		{
-//			Debug.Log("Updating " + debugText);
 			// get a temporary RenderTexture //
 			RenderTexture renderTexture = RenderTexture.GetTemporary(width, height);
 
@@ -342,12 +395,17 @@ namespace AshleySeric.FenceWrangler
 			// return the goods //
 			previewTex = newTexture;
 		}
-		private bool IndentFoldout(ref bool foldOut, string title, int indent = 1)
+        
+        #endregion
+        
+        #region Methods
+
+        private bool Foldout(ref bool foldOut, string title, int indent = 0)
 		{
-			EditorGUI.indentLevel += indent;
-			foldOut = EditorGUILayout.Foldout(foldOut, title, true);
-			EditorGUI.indentLevel -= indent;
-			return foldOut;
+            foldOut = GUILayout.Toggle(foldOut, title, StyleManager.FoldoutHeading, GUILayout.ExpandWidth(true));
+            return foldOut;
 		}
-	}
+
+        #endregion
+    }
 }

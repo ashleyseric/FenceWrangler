@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEditor;
 using UnityEditorInternal;
+using AshleySeric.Styles;
 
 namespace AshleySeric.FenceWrangler
 {
@@ -130,41 +131,32 @@ namespace AshleySeric.FenceWrangler
 			DrawPropertiesExcluding(serializedObject, "sections", "m_Script");
 
 			// Draw custom sections list
-			EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            EditorGUI.indentLevel += 1;
-            showSections = EditorGUILayout.Foldout(showSections, "Sections", true);
-            if (showSections)
+			//EditorGUILayout.BeginVertical(StyleManager.FoldoutSetBg);
+            //EditorGUI.indentLevel += 1;
+            //showSections = GUILayout.Toggle(showSections, "Sections", StyleManager.FoldoutSetHeading);
+            //if (showSections)
                 sectionList.DoLayoutList();
-			EditorGUI.indentLevel -= 1;
+			//EditorGUI.indentLevel -= 1;
 			if (selectionIndexProp.intValue != prevSelection)
 			{
 				presetEditor = Editor.CreateEditor(fence.sections[selectionIndexProp.intValue].data);
 				prevSelection = selectionIndexProp.intValue;
 			}
-			EditorGUILayout.EndVertical();
+			//EditorGUILayout.EndVertical();
 
 			// draw Fence Preset editor within this editor
 			if (fence.sections.Count > 0)
 			{
-				if (fence.sections[selectionIndexProp.intValue].data)
+				if (fence.sections[selectionIndexProp.intValue].data && showPreset)
 				{
-					
-					GUILayout.BeginVertical(EditorStyles.helpBox);
-					EditorGUI.indentLevel += 1;
-					showPreset = EditorGUILayout.Foldout(showPreset, fence.sections[selectionIndexProp.intValue].data.name + " (Preset)", true);
-					EditorGUI.indentLevel -= 1;
-					if (showPreset)
+					EditorGUILayout.Space();
+					EditorGUI.BeginChangeCheck();
+					presetEditor.OnInspectorGUI();
+					//Give us live updates when changing presets in the instpector.
+					if (EditorGUI.EndChangeCheck())
 					{
-						EditorGUILayout.Space();
-						EditorGUI.BeginChangeCheck();
-						presetEditor.OnInspectorGUI();
-						//Give us live updates when changing presets in the instpector.
-						if (EditorGUI.EndChangeCheck())
-						{
-							fence.BuildFence();
-						}
+						fence.BuildFence();
 					}
-					GUILayout.EndVertical();
 				}
 				else
 				{
