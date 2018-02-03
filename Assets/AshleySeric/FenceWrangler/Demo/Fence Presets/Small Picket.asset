@@ -15,7 +15,7 @@ MonoBehaviour:
   conformMode: 1
   allowObstructions: 0
   lean: 0
-  tilt: 0
+  tilt: 1
   picketConform: 0
   segmentLength: 2
   postJointMode: 0
@@ -25,9 +25,9 @@ MonoBehaviour:
   picketGroundOffset: 0.05
   railThickness: 0.04
   materials:
-  - {fileID: 1467508804, guid: f975fe2355b9c994798041c70714052d, type: 3}
-  - {fileID: 1467508804, guid: f975fe2355b9c994798041c70714052d, type: 3}
-  - {fileID: 1845018001, guid: f975fe2355b9c994798041c70714052d, type: 3}
+  - {fileID: 2100000, guid: f61ff128c80184f4e9f844cc8cee751b, type: 2}
+  - {fileID: 2100000, guid: 3ecd3b47695ae4b42b8507115cd7830f, type: 2}
+  - {fileID: 2100000, guid: 3ecd3b47695ae4b42b8507115cd7830f, type: 2}
   rails:
   - obstructionPreventsPickets: 0
     groundOffset: 0.2
