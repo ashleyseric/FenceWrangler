@@ -27,6 +27,8 @@ namespace AshleySeric.FenceWrangler.Editor
 
         private bool drawSceneLabels;
 
+        private bool useEasyHandles;
+
         #endregion
 
         #region Properties
@@ -65,6 +67,28 @@ namespace AshleySeric.FenceWrangler.Editor
             }
         }
 
+        /// <summary>
+        /// Use simplified handles that automatically conform to the terrain
+        /// </summary>
+        public static bool UseEasyHandles
+        {
+            get
+            {
+                if (!EditorPrefs.HasKey("AshleySeric.Fencer.UseEasyHandles"))
+                {
+                    // Default to true
+                    EditorPrefs.SetBool("AshleySeric.Fencer.UseEasyHandles", true);
+                }
+
+                return EditorPrefs.GetBool("AshleySeric.Fencer.UseEasyHandles");
+            }
+
+            set
+            {
+                EditorPrefs.SetBool("AshleySeric.Fencer.UseEasyHandles", value);
+            }
+        }
+
         #endregion
 
         #region Unity Methods
@@ -73,6 +97,7 @@ namespace AshleySeric.FenceWrangler.Editor
         {
             drawDebugLines = DrawDebugLines;
             drawSceneLabels = DrawSceneLabels;
+            useEasyHandles = UseEasyHandles;
         }
 
         void OnGUI()
@@ -98,6 +123,16 @@ namespace AshleySeric.FenceWrangler.Editor
                     DrawSceneLabels = drawSceneLabels;
                 }
             }
+
+            using (var check = new EditorGUI.ChangeCheckScope())
+            {
+                useEasyHandles = EditorGUILayout.Toggle(new GUIContent("Use Easy Handles", "Draw section labels in the scene view."), useEasyHandles);
+
+                if (check.changed)
+                {
+                    UseEasyHandles = useEasyHandles;
+                }
+            }
         }
 
         #endregion
@@ -109,7 +144,7 @@ namespace AshleySeric.FenceWrangler.Editor
         {
             // Get existing open window or if none, make a new one:
             EditorSettings window = (EditorSettings)GetWindow(typeof(EditorSettings), true, "Fencer Editor Settings", true);
-            window.minSize = window.maxSize = new Vector2(180, 60);
+            window.minSize = window.maxSize = new Vector2(180, 80);
             window.Show();
         }
 

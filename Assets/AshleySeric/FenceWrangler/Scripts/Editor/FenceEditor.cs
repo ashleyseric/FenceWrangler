@@ -104,11 +104,42 @@ namespace AshleySeric.FenceWrangler.Editor
 
             for (int i = 0; i < fence.sections.Count; i++)
             {
-                Handles.color = fence.sections[i].Data == null ? Color.red : Color.white;
                 EditorGUI.BeginChangeCheck();
+
                 // Convert to world space
                 Vector3 _handlePos = fence.sections[i].CornerPoint + pivotPosition;
-                fence.sections[i].CornerPoint = Handles.PositionHandle(_handlePos, handleRotation) - pivotPosition;
+
+                if (EditorSettings.UseEasyHandles)
+                {
+                    Handles.color = fence.sections[i].Data == null ? Color.red : Color.green;
+                    float handlesSize = HandleUtility.GetHandleSize(_handlePos) * 0.1f;
+
+                    Vector3 tempPos = _handlePos;
+
+                    
+                    using (var check = new EditorGUI.ChangeCheckScope())
+                    {
+                        // Draw solid disk (for visuals only)
+                        Handles.DrawSolidDisc(_handlePos, -Camera.current.transform.forward, handlesSize);
+
+                        // Draw actual circle handle
+                        tempPos = Handles.FreeMoveHandle(_handlePos, handleRotation, handlesSize, Vector3.zero, Handles.CircleHandleCap) - pivotPosition;
+
+                        if(check.changed)
+                        {
+                            RaycastHit hit;
+                            if (Physics.Raycast(HandleUtility.GUIPointToWorldRay(Event.current.mousePosition), out hit, 5000, fence.ConformMask))
+                            {
+                                fence.sections[i].CornerPoint = hit.point - pivotPosition;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    Handles.color = fence.sections[i].Data == null ? Color.red : Color.white;
+                    fence.sections[i].CornerPoint = Handles.PositionHandle(_handlePos, handleRotation) - pivotPosition;
+                }
 
                 if (EditorGUI.EndChangeCheck())
                 {
